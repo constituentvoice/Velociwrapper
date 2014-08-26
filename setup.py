@@ -4,7 +4,7 @@ import os
 
 setup(
 	name='Velociwrapper',
-	version='0.1.0',
+	version='0.1.1',
 	author='Chris Brown',
 	author_email='chris.brown@nwyc.com',
 	packages=['velociwrapper'],
@@ -12,5 +12,5 @@ setup(
 	license='BSD',
 	description='Wrapper to create models and collections around Elastic Search',
 	long_description=open('README.rst').read(),
-	install_requires=['dateutil','elasticsearch','types','uuid','datetime']
+	install_requires=['python-dateutil','elasticsearch','types','uuid','datetime']
 )
