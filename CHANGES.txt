@@ -1,2 +1,9 @@
 0.1.0
 	- initial release
+0.1.1
+	- bugfixes
+0.1.2
+	- MOAR bug fixes
+0.1.3
+	- Fixed issues with pagination
+	- Fixed issue where some values were not copied
