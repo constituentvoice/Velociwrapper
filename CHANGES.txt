@@ -7,3 +7,6 @@
 0.1.3
 	- Fixed issues with pagination
 	- Fixed issue where some values were not copied
+
+0.1.4
+	- Fixed deepcopy of shared resources (specifically self._es)

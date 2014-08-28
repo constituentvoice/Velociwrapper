@@ -67,7 +67,7 @@ class VWBase(object):
 			# special rules for names with underscores. They can be set once but then remain
 			# seting the _ values will not trigger an update
 			if name not in dir(self):
-				object.__setattr__(self,name,copy.deepcopy(value))
+				object.__setattr__(self,name,value)  # don't copy this stuff. Set it as is
 		else:
 			object.__setattr__(self,name,copy.deepcopy(value))
 
