@@ -261,12 +261,14 @@ class VWCollection():
 		if not params.get('size'):
 			params['size'] = self.results_per_page
 
-		if kwargs.get('results_per_page'):
+		if kwargs.get('results_per_page') != None:
 			kwargs['size'] = kwargs.get('results_per_page')
+			del kwargs['results_per_page']
 
-		if kwargs.get('start'):
-			kwargs['from'] = kwargs.get('start')
-
+		if kwargs.get('start') != None:
+			kwargs['from_'] = kwargs.get('start')
+			del kwargs['start']
+		
 		params.update(kwargs)
 
 		results = self._es.search( **params )
