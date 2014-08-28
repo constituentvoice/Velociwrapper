@@ -4,6 +4,7 @@ from dateutil import parser
 from uuid import uuid4
 import json
 import types
+import copy
 
 dsn = ['localhost']
 default_index = 'es_model'
@@ -66,11 +67,11 @@ class VWBase(object):
 			# special rules for names with underscores. They can be set once but then remain
 			# seting the _ values will not trigger an update
 			if name not in dir(self):
-				object.__setattr__(self,name,value)
+				object.__setattr__(self,name,copy.deepcopy(value))
 		else:
-			object.__setattr__(self,name,value)
+			object.__setattr__(self,name,copy.deepcopy(value))
 
-			if name != '_watch' and name != '_needs_update' and self._watch:
+			if self._watch:
 				object.__setattr__(self,'_needs_update',True)
 				object.__setattr__(self,'_watch',False)
 
