@@ -12,6 +12,9 @@ default_index = 'es_model'
 class ObjectDeletedError(Exception):
 	pass
 
+class NoResultsFound(Exception):
+	pass
+
 class VWBase(object):
 	# connects to ES
 	_watch = False
@@ -56,8 +59,11 @@ class VWBase(object):
 	def __getattr__(self,name):
 		if self.__dict__.get('_deleted'):
 			raise ObjectDeletedError
-
-		return self.__dict__.get(name)
+		
+		try:
+			return self.__dict__[name]
+		except KeyError:
+			raise AttributeError
 
 	def __setattr__(self,name,value):
 		if '_deleted' in dir(self) and self._deleted:
@@ -278,3 +284,10 @@ class VWCollection():
 		rows = results.get('hits').get('hits')
 
 		return self._create_obj_list( rows )
+
+	def one(self,**kwargs):
+		results = self.all(results_per_page=1)
+		try:
+			return results[0]
+		except IndexError:
+			raise NoResultsFound('No result found for one()')

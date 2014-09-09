@@ -16,5 +16,5 @@
 	  elastic search and then remove the settings from the object. This allows
 	  the collection object to be used for a new search. The drawback is
 	  subsequent calls to all() will not work as expected.
-
+	- added functionality for one() to return the first result of a query
 
