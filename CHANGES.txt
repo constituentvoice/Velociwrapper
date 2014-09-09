@@ -10,3 +10,11 @@
 
 0.1.4
 	- Fixed deepcopy of shared resources (specifically self._es)
+
+0.1.5
+	- Calls to _create_search_params() create the native parameters to send to
+	  elastic search and then remove the settings from the object. This allows
+	  the collection object to be used for a new search. The drawback is
+	  subsequent calls to all() will not work as expected.
+
+
