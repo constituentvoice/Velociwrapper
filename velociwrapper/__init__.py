@@ -5,6 +5,7 @@ from uuid import uuid4
 import json
 import types
 import copy
+import inspect
 
 dsn = ['localhost']
 default_index = 'es_model'
@@ -15,6 +16,60 @@ class ObjectDeletedError(Exception):
 class NoResultsFound(Exception):
 	pass
 
+class relationship(object):
+	def __init__(self,ref_model,**kwargs):
+		self.ref_model_str = ref_model
+		self.ref_model = None
+
+		# reltype is one or many
+		self.reltype = 'one'
+		if kwargs.get('_type'):
+			self.reltype = kwargs.get('_type')
+			del kwargs['_type']
+		
+		self.params = kwargs
+	
+	def execute(self, cur_inst):
+		
+		# first pass we'll need the reference model
+		if not self.ref_model:
+			m = inspect.getmodule(cur_inst)
+			for name in dir(m):
+				if name == self.ref_model_str:
+					self.ref_model = getattr(m,name)
+
+		if not self.ref_model:
+			raise AttributeError('Invalid relatonship')
+
+		c = VWCollection(base_obj=self.ref_model)
+		filter_params = {}
+		possible_by_id = False
+		for k,v in self.params.iteritems():
+			if v == 'id':
+				possible_by_id = getattr(cur_inst,k)
+			else:
+				filter_params[v] = getattr(cur_inst,k)
+
+		value = None
+		
+		if not filter_params and possible_by_id:
+			if type( possible_by_id ) == list:
+				value = c.get_in(possible_by_id)
+			else:
+				value = c.get(possible_by_id)
+		else:
+			srch = c.filter_by(**filter_params)
+
+			if self.reltype == 'one':
+				try:
+					value = srch.one()
+				except NoResultsFound:
+					pass
+			else:
+				value = srch.all()
+
+		return value
+			
 class VWBase(object):
 	# connects to ES
 	_watch = False
@@ -25,7 +80,7 @@ class VWBase(object):
 		# connect using defaults or override with kwargs
 		if kwargs.get('_set_by_query'):
 			self._new = False
-			self._set_by_query = False
+			self._set_by_query = True
 		else:
 			self._new = True
 
@@ -56,24 +111,45 @@ class VWBase(object):
 		if 'id' not in kwargs:
 			self.id = str(uuid4())
 
-	def __getattr__(self,name):
-		if self.__dict__.get('_deleted'):
-			raise ObjectDeletedError
+		# make sure we're ready for changes
+		self._set_by_query = False
+	
+	def __getattribute__(self,name):
+		# ok this is much funky
 		
+		deleted = False
 		try:
-			return self.__dict__[name]
-		except KeyError:
-			raise AttributeError
+			deleted = super(VWBase,self).__getattribute__('_deleted')
+			if deleted:
+				raise ObjectDeletedError
+		except AttributeError:
+			pass
+		
+		set_by_query = False
+		try:
+			set_by_query = super(VWBase,self).__getattribute__('_set_by_query')
+		except AttributeError:
+			pass
+	
+		v = super(VWBase,self).__getattribute__(name)
+
+		# we want to keep the relationships if set_by_query in the collection so we only execute with direct access
+		# (we'll see, it might have an unintended side-effect)
+		if isinstance(v,relationship) and not set_by_query:
+			return v.execute(self)
+		else:
+			return v
 
 	def __setattr__(self,name,value):
 		if '_deleted' in dir(self) and self._deleted:
 			raise ObjectDeletedError
 
 		if name[0] == '_':
-			# special rules for names with underscores. They can be set once but then remain
-			# seting the _ values will not trigger an update
-			if name not in dir(self):
+			# special rules for names with underscores.
+			# seting the _ values will not trigger an update. 
+			if name not in dir(self) or name in ['_set_by_query','_deleted','_watch']:
 				object.__setattr__(self,name,value)  # don't copy this stuff. Set it as is
+
 		else:
 			object.__setattr__(self,name,copy.deepcopy(value))
 
