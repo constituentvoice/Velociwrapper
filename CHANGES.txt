@@ -28,4 +28,6 @@
 0.2.1
 	- reverted _create_search_params() change. Search paramters stay. Broke
 	  too much stuff.
+	- added clear_previous_search() to clear the search and reuse the
+	  collection
 
