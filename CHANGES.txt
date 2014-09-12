@@ -23,5 +23,9 @@
 	- Fixed _deleted not getting set
 	- Added relationship functionality
 		- relationships can be specified on single columns
-		- setting of a relationship attribute doesn't work yet
+		- setting of a model on a relationship attribute does not yet work
+
+0.2.1
+	- reverted _create_search_params() change. Search paramters stay. Broke
+	  too much stuff.
 

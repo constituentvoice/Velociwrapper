@@ -442,10 +442,8 @@ class VWCollection():
 
 		if self._raw:
 			q['body'] = self._raw
-			self._raw = {}
 		elif len(self._search_params) > 0:
 			q['q'] = self.and_(*self._search_params)
-			self._search_params = []
 
 		else:
 			q['body'] = {'query':{'match_all':{} } }
