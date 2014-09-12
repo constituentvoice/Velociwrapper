@@ -434,6 +434,10 @@ class VWCollection():
 	def get_like_this(self,doc_id):
 		return self._create_obj_list( self._es.mlt(index=self.idx,doc_type=self.type,id=doc_id ) )
 
+	def clear_previous_search( self ):
+		self._raw = {}
+		self._search_params = []
+
 	def _create_search_params( self ):
 		q = {
 			'index': self.idx,
