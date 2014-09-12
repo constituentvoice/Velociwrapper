@@ -22,4 +22,6 @@
 	- Fixed bugs related to _set_by_query not being set
 	- Fixed _deleted not getting set
 	- Added relationship functionality
+		- relationships can be specified on single columns
+		- setting of a relationship attribute doesn't work yet
 
