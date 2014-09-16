@@ -6,7 +6,7 @@ import json
 import types
 import copy
 import logging
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('Velociwrapper')
 
 dsn = ['localhost']
 default_index = 'es_model'
@@ -341,7 +341,7 @@ class VWBase(object):
 		c = VWCollection(base_obj=self.__class__)
 		return c.get_like_this(self.id).all(**kwargs)
 
-class VWCollection():
+class VWCollection(object):
 	def __init__(self,**kwargs):
 
 		self.results_per_page = 50
