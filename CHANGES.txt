@@ -30,4 +30,5 @@
 	  too much stuff.
 	- added clear_previous_search() to clear the search and reuse the
 	  collection
-
+0.2.2
+	- bugfix to make VWCollection extend object
