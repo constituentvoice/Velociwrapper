@@ -491,3 +491,23 @@ class VWCollection(object):
 			return results[0]
 		except IndexError:
 			raise NoResultsFound('No result found for one()')
+
+	def search_geo(self, field, distance, lat, lon):
+		return self.raw( {
+			"query": {
+				"filtered": { 
+					"query": {
+						"match_all": {}
+					},
+					"filter": {
+						"geo_distance": {
+							"distance": distance,
+							field: [ lon, lat ]
+						}
+					}
+				}
+			}
+		})
+
+
+			
