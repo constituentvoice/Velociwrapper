@@ -32,3 +32,6 @@
 	  collection
 0.2.2
 	- bugfix to make VWCollection extend object
+
+0.2.3
+	- added function for geo searches
