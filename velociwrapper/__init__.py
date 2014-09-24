@@ -345,6 +345,8 @@ class VWCollection(object):
 	def __init__(self,**kwargs):
 
 		self.results_per_page = 50
+		self._sort = []
+		
 		if kwargs.get('results_per_page'):
 			self.results_per_page = kwargs.get('results_per_page')
 
@@ -434,6 +436,15 @@ class VWCollection(object):
 	def get_like_this(self,doc_id):
 		return self._create_obj_list( self._es.mlt(index=self.idx,doc_type=self.type,id=doc_id ) )
 
+	def sort(self, **kwargs ):
+		for k,v in kwargs.iteritems():
+			v = v.lower()
+			if v not in ['asc','desc']:
+				v = 'asc'
+
+			self._sort.append( '%s:%s' % (k,v) )
+		return self
+
 	def clear_previous_search( self ):
 		self._raw = {}
 		self._search_params = []
@@ -478,7 +489,17 @@ class VWCollection(object):
 			kwargs['from_'] = kwargs.get('start')
 			del kwargs['start']
 		
+		logger.debug( json.dumps( self._sort )  )
+
 		params.update(kwargs)
+		if len(self._sort) > 0:
+			if params.get('sort'):
+				params['sort'].extend(self._sort)
+			else:
+				params['sort'] = self._sort
+		
+		if params.get('sort'):
+			params['sort'] = ','.join(params.get('sort'))
 
 		results = self._es.search( **params )
 		rows = results.get('hits').get('hits')
