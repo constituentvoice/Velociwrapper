@@ -369,6 +369,7 @@ class VWCollection(object):
 		self._raw = {}
 		self.idx = idx
 		self.type = self.base_obj.__type__
+		self._special_body = {}
 
 	def _create_obj_list(self,es_rows):
 		retlist = []
@@ -462,7 +463,13 @@ class VWCollection(object):
 
 		else:
 			q['body'] = {'query':{'match_all':{} } }
+		
 
+		# this allows for searching along with geo and range queries
+		if self._special_body:
+			q['body'] = self._special_body
+		
+		logger.debug(json.dumps(q))
 		return q
 
 
@@ -493,13 +500,16 @@ class VWCollection(object):
 
 		params.update(kwargs)
 		if len(self._sort) > 0:
-			if params.get('sort'):
+			if params.get('sort') and isinstance(params['sort'], list):
 				params['sort'].extend(self._sort)
 			else:
 				params['sort'] = self._sort
 		
 		if params.get('sort'):
-			params['sort'] = ','.join(params.get('sort'))
+			if isinstance(params['sort'], list):
+				params['sort'] = ','.join(params.get('sort'))
+			else:
+				raise TypeError('"sort" argument must be a list')
 
 		results = self._es.search( **params )
 		rows = results.get('hits').get('hits')
@@ -512,6 +522,40 @@ class VWCollection(object):
 			return results[0]
 		except IndexError:
 			raise NoResultsFound('No result found for one()')
+
+	# builds query bodies
+	def _build_body( self, **kwargs ):
+		if not self._special_body:
+			self._special_body = { "query": {} }
+		
+		if kwargs.get('filter'):
+			if not self._special_body.get('query').get('filtered'):
+				current_q = self._special_body.get('query')
+
+				self._special_body['query']['filtered'] = { 'query': current_q, 'filter':{}  }
+			
+			
+
+			self._special_body['query']['filtered']['filter'].update( kwargs.get('filter'))
+		elif kwargs.get('query'):
+			if self._special_body.get('query').get('filtered'):
+				self._special_body.get('query').get('filtered').get('query').update(kwargs.get('query'))
+
+			else:
+				self._special_body.get('query').update(kwargs.get('query'))
+
+	def _special_body_is_filtered(self):
+		return (self._special_body and self._special_body.get('query').get('filtered'))
+
+	def range(self, field, **kwargs):
+		q = {'range': { field: kwargs } }
+		if self._special_body_is_filtered():
+			d = {'filter': q }
+		else:
+			d = {'query': q }
+
+		self._build_body(**d)
+		return self
 
 	def search_geo(self, field, distance, lat, lon):
 		return self.raw( {
