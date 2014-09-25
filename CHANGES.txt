@@ -35,3 +35,8 @@
 
 0.2.3
 	- added function for geo searches
+
+0.2.4
+	- added sort()
+	- added range()
+	- BUG: range() doesn't work with other searches. To be fixed.
