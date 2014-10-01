@@ -40,3 +40,6 @@
 	- added sort()
 	- added range()
 	- BUG: range() doesn't work with other searches. To be fixed.
+
+0.2.5
+	- drew fixed broken delete()
