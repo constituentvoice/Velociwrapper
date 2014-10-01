@@ -175,14 +175,6 @@ class VWBase(object):
 	def __getattribute__(self,name):
 		# ok this is much funky
 		
-		deleted = False
-		try:
-			deleted = super(VWBase,self).__getattribute__('_deleted')
-			if deleted:
-				raise ObjectDeletedError
-		except AttributeError:
-			pass
-		
 		no_ex = False
 		try:
 			no_ex = super(VWBase,self).__getattribute__('_no_ex')
