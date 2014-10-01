@@ -279,8 +279,11 @@ class VWBase(object):
 	def commit(self):
 		# save in the db
 
-		if self._deleted and self.id:
-			self._es.delete(id=self.id,index=self.__index__,doc_type=self.__type__)
+		if super(VWBase,self).__getattribute__('_deleted'):
+			id = super(VWBase,self).__getattribute__('id')
+			index = super(VWBase,self).__getattribute__('__index__')
+			doc_type = super(VWBase,self).__getattribute__('__type__')
+			self._es.delete(id=id,index=index,doc_type=doc_type)
 		else:
 			idx = self.__index__
 			doc_type = self.__type__
