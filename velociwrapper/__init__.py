@@ -325,7 +325,7 @@ class VWBase(object):
 					# output[k] = v.isoformat()
 					output[k] = v.strftime("%Y-%m-%d %H:%M:%S")
 				else:
-					output[k] = v
+					output[k] = copy.deepcopy(v)
 
 		return output
 
