@@ -1,4 +1,4 @@
-from elasticsearch import Elasticsearch, NotFoundError
+from elasticsearch import Elasticsearch, NotFoundError, helperes
 from datetime import date,datetime
 from dateutil import parser
 from uuid import uuid4
@@ -11,6 +11,7 @@ logger = logging.getLogger('Velociwrapper')
 dsn = ['localhost']
 default_index = 'es_model'
 registry = {}
+bulk_chunk_size = 1000
 
 class ObjectDeletedError(Exception):
 	pass
@@ -335,6 +336,10 @@ class VWBase(object):
 
 class VWCollection(object):
 	def __init__(self,**kwargs):
+		self.bulk_chunk_size = bulk_chunk_size
+
+		if kwargs.get('bulk_chunk_size'):
+			self.bulk_chunk_size = kwargs.get('bulk_chunk_size')
 
 		self.results_per_page = 50
 		self._sort = []
@@ -566,5 +571,30 @@ class VWCollection(object):
 			}
 		})
 
+	
+	def delete(self, **kwargs):
+		params = self._create_search_params()
+		params.update(kwargs)
+		self._es.delete_by_query( **params )
 
-			
+
+	def delete_in(self, ids):
+		if not isinstance(ids, list):
+			raise TypeError('argument to delete in must be a list.')
+
+		bulk_docs = []
+		for i in ids:
+			this_id = i
+			this_type = self.base_obj.__type__
+			this_idx = self.base_obj.__index__
+			if isinstance(i, VWBase):
+				this_id = i.id
+				this_type = this.__type__
+				this_idx = this.__index__
+
+			bulk_docs.append( {'_op_type': 'delete', '_type': this_type, '_index': this_index, '_id': this_id } )
+
+		return helpers.bulk( self._es, bulk_docs, chunk_size=self.bulk_chunk_size)
+
+
+		
