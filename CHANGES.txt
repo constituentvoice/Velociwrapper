@@ -43,3 +43,9 @@
 
 0.2.5
 	- drew fixed broken delete()
+
+0.2.6
+	- ???
+
+0.2.7
+	- added delete() and delete_in() to collections
