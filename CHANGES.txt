@@ -49,3 +49,6 @@
 
 0.2.7
 	- added delete() and delete_in() to collections
+
+0.2.8
+	- added commit() to bulk commit

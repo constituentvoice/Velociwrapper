@@ -318,13 +318,19 @@ class VWBase(object):
 		if self.id:
 			self._deleted = True
 
+	# to dict is for overriding. _create_source_document() should never be overridden!
 	def to_dict(self):
+		return self._create_source_document()
+
+	def _create_source_document(self):
 		output = {}
 		for k,v in self.__dict__.iteritems():
 			if k[0] != '_':
-				if isinstance(v,date) or isinstance(v,datetime):
+				if isinstance(v,datetime):
 					# output[k] = v.isoformat()
 					output[k] = v.strftime("%Y-%m-%d %H:%M:%S")
+				elif isinstance(v,date):
+					output[k] = v.strftime('%Y-%m-%d')
 				else:
 					output[k] = copy.deepcopy(v)
 
@@ -335,7 +341,7 @@ class VWBase(object):
 		return c.get_like_this(self.id).all(**kwargs)
 
 class VWCollection(object):
-	def __init__(self,**kwargs):
+	def __init__(self,items=[],**kwargs):
 		self.bulk_chunk_size = bulk_chunk_size
 
 		if kwargs.get('bulk_chunk_size'):
@@ -367,6 +373,7 @@ class VWCollection(object):
 		self.idx = idx
 		self.type = self.base_obj.__type__
 		self._special_body = {}
+		self._items = items # special list of items that can be committed in bulk
 
 	def _create_obj_list(self,es_rows):
 		retlist = []
@@ -590,11 +597,47 @@ class VWCollection(object):
 			if isinstance(i, VWBase):
 				this_id = i.id
 				this_type = i.__type__
-				this_idx = i.__index__
+				try:
+					this_idx = i.__index__
+				except AttributeError:
+					pass
 
 			bulk_docs.append( {'_op_type': 'delete', '_type': this_type, '_index': this_idx, '_id': this_id } )
 
 		return helpers.bulk( self._es, bulk_docs, chunk_size=self.bulk_chunk_size)
+	
+	# commits items in bulk
+	def commit(self):
+		bulk_docs = {}
+		for i in self._items:
+			this_dict = {}
+			this_id = ''
+			this_idx = self.idx
+			this_type = self.base_obj.__type__
+			if isinstance(i, VWBase):
+				this_dict = i._create_source_document()
+				this_type = i.__type__
+				this_id = i.id
+				try:
+					this_idx = i.__index__
+				except AttributeError:
+					pass
 
+			elif isinstance(i,dict):
+				this_dict = i
+				this_id = i.get('id')
+			
+			else:
+				raise TypeError( 'Elments passed to the collection must be type of "dict" or "VWBase"' )
+			
+			if not this_id:
+				this_id = str(uuid4())
 
+			bulk_docs.append( {'_op_type': 'index', '_type': this_type, '_index': this_idx, '_id': this_id, '_source': this_dict } )
+
+		helpers.bulk(self._es,bulk_docs,chunk_size=1000)
 		
+
+
+
+
