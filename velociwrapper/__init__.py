@@ -1,4 +1,4 @@
-from elasticsearch import Elasticsearch, NotFoundError, helperes
+from elasticsearch import Elasticsearch, NotFoundError, helpers
 from datetime import date,datetime
 from dateutil import parser
 from uuid import uuid4
@@ -586,13 +586,13 @@ class VWCollection(object):
 		for i in ids:
 			this_id = i
 			this_type = self.base_obj.__type__
-			this_idx = self.base_obj.__index__
+			this_idx = self.idx
 			if isinstance(i, VWBase):
 				this_id = i.id
-				this_type = this.__type__
-				this_idx = this.__index__
+				this_type = i.__type__
+				this_idx = i.__index__
 
-			bulk_docs.append( {'_op_type': 'delete', '_type': this_type, '_index': this_index, '_id': this_id } )
+			bulk_docs.append( {'_op_type': 'delete', '_type': this_type, '_index': this_idx, '_id': this_id } )
 
 		return helpers.bulk( self._es, bulk_docs, chunk_size=self.bulk_chunk_size)
 
