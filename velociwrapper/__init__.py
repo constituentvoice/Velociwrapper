@@ -608,7 +608,7 @@ class VWCollection(object):
 	
 	# commits items in bulk
 	def commit(self):
-		bulk_docs = {}
+		bulk_docs = []
 		for i in self._items:
 			this_dict = {}
 			this_id = ''
