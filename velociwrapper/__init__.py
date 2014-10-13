@@ -328,7 +328,7 @@ class VWBase(object):
 			if k[0] != '_':
 				if isinstance(v,datetime):
 					# output[k] = v.isoformat()
-					output[k] = v.strftime("%Y-%m-%d %H:%M:%S")
+					output[k] = v.strftime("%Y-%m-%dT%H:%M:%S")
 				elif isinstance(v,date):
 					output[k] = v.strftime('%Y-%m-%d')
 				else:
@@ -635,7 +635,7 @@ class VWCollection(object):
 
 			bulk_docs.append( {'_op_type': 'index', '_type': this_type, '_index': this_idx, '_id': this_id, '_source': this_dict } )
 
-		helpers.bulk(self._es,bulk_docs,chunk_size=1000)
+		return helpers.bulk(self._es,bulk_docs,chunk_size=self.bulk_chunk_size)
 		
 
 
