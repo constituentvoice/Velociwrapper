@@ -607,9 +607,17 @@ class VWCollection(object):
 		return helpers.bulk( self._es, bulk_docs, chunk_size=self.bulk_chunk_size)
 	
 	# commits items in bulk
-	def commit(self):
+	def commit(self, callback=None):
 		bulk_docs = []
+
+		if callback:
+			if not callable(callback):
+				raise TypeError('Argument 2 to commit() must be callable')
+
 		for i in self._items:
+			if callback:
+				i = callback(i)
+
 			this_dict = {}
 			this_id = ''
 			this_idx = self.idx

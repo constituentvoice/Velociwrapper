@@ -56,3 +56,6 @@
 0.2.9
 	- bulk commit now returns the status of each commit
 	- fixed date time format to work with bulk commit
+
+0.2.10
+	- added callback argument to commit
