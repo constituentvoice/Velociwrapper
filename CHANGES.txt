@@ -30,6 +30,7 @@
 	  too much stuff.
 	- added clear_previous_search() to clear the search and reuse the
 	  collection
+
 0.2.2
 	- bugfix to make VWCollection extend object
 
@@ -59,3 +60,8 @@
 
 0.2.10
 	- added callback argument to commit
+
+0.2.11
+	- fixed collection calling wrong variable name when a custom index is
+	  specfied
+	- velociwrapper.__version__ returns the version number of the module now

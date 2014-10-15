@@ -8,6 +8,9 @@ import copy
 import logging
 logger = logging.getLogger('Velociwrapper')
 
+# make sure this gets updated!
+__version__ = '0.2.11'
+
 dsn = ['localhost']
 default_index = 'es_model'
 registry = {}
@@ -128,6 +131,7 @@ class VWBase(object):
 	_watch = False
 	_needs_update = False
 	id = ''
+	__index__ = default_index
 
 	def __init__(self,**kwargs):
 		# connect using defaults or override with kwargs
@@ -364,7 +368,7 @@ class VWCollection(object):
 		self._es = Elasticsearch( dsn )
 
 		if '__index__' in dir(self.base_obj):
-			idx = self.base_obj.idx
+			idx = self.base_obj.__index__
 		else:
 			idx = default_index
 
