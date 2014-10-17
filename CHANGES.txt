@@ -65,3 +65,10 @@
 	- fixed collection calling wrong variable name when a custom index is
 	  specfied
 	- velociwrapper.__version__ returns the version number of the module now
+
+0.2.12
+	- allow _create_source_document() to have a specified date or datetime
+	  format
+	- fixed to_dict() to return date_time format in true ISO 0000-00-00
+	  00:00:00
+	- fixed date object creation being turned into datetime

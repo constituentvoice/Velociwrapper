@@ -131,8 +131,7 @@ class VWBase(object):
 	_watch = False
 	_needs_update = False
 	id = ''
-	__index__ = default_index
-
+	
 	def __init__(self,**kwargs):
 		# connect using defaults or override with kwargs
 
@@ -164,6 +163,11 @@ class VWBase(object):
 					if (isinstance(self.__class__.__dict__.get(k), date) or isinstance(self.__class__.__dict__.get(k),datetime) ) and not (isinstance(v, date) or isinstance(v,datetime)):
 						try:
 							v = parser.parse(v)
+
+							# convert dates back to date object value (instead of datetime returned by parser.parse)
+							# checking "not datetime" because datetime derives from date ("is date" is always true)
+							if not isinstance( self.__class__.__dict__.get(k), datetime ):
+								v = v.date()
 						except:
 							pass
 
@@ -324,17 +328,19 @@ class VWBase(object):
 
 	# to dict is for overriding. _create_source_document() should never be overridden!
 	def to_dict(self):
-		return self._create_source_document()
+		return self._create_source_document(datetime_format='%Y-%m-%d %H:%M:%S')  # to_dict should use true ISO format without the T
 
-	def _create_source_document(self):
+	def _create_source_document(self, **kwargs):
 		output = {}
+		date_format = kwargs.get('date_format','%Y-%m-%d')
+		datetime_format = kwargs.get('datetime_format','%Y-%m-%dT%H:%M:%S')
 		for k,v in self.__dict__.iteritems():
 			if k[0] != '_':
 				if isinstance(v,datetime):
 					# output[k] = v.isoformat()
-					output[k] = v.strftime("%Y-%m-%dT%H:%M:%S")
+					output[k] = v.strftime(datetime_format)
 				elif isinstance(v,date):
-					output[k] = v.strftime('%Y-%m-%d')
+					output[k] = v.strftime(date_format)
 				else:
 					output[k] = copy.deepcopy(v)
 
@@ -518,7 +524,7 @@ class VWCollection(object):
 				params['sort'] = ','.join(params.get('sort'))
 			else:
 				raise TypeError('"sort" argument must be a list')
-
+		
 		results = self._es.search( **params )
 		rows = results.get('hits').get('hits')
 
