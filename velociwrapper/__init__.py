@@ -9,7 +9,7 @@ import logging
 logger = logging.getLogger('Velociwrapper')
 
 # make sure this gets updated!
-__version__ = '0.2.11'
+__version__ = '0.2.13'
 
 dsn = ['localhost']
 default_index = 'es_model'
@@ -388,7 +388,8 @@ class VWCollection(object):
 	def _create_obj_list(self,es_rows):
 		retlist = []
 		for doc in es_rows:
-			retlist.append( self._create_obj(doc) )
+			if doc.get('found') and doc.get('_source'):
+				retlist.append( self._create_obj(doc) )
 
 		return retlist
 
@@ -441,15 +442,18 @@ class VWCollection(object):
 			return None
 
 	def get_in(self, ids):
-		try:
-			doc_list = self._es.mget(index=self.idx,doc_type=self.type,body={'ids':ids})
-			docs = map( lambda d: self._create_obj(d), doc_list.get('docs') )
-			return docs
-		except:
+		res = self._es.mget(index=self.idx,doc_type=self.type,body={'ids':ids})
+		if res and res.get('docs'):
+			return self._create_obj_list( res.get('docs') )
+		else:
 			return []
 
 	def get_like_this(self,doc_id):
-		return self._create_obj_list( self._es.mlt(index=self.idx,doc_type=self.type,id=doc_id ) )
+		res = self._es.mlt(index=self.idx,doc_type=self.type,id=doc_id )
+		if res and res.get('docs'):
+			return self._create_obj_list( res.get('docs') )
+		else:
+			return []
 
 	def sort(self, **kwargs ):
 		for k,v in kwargs.iteritems():

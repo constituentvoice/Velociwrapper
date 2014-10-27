@@ -72,3 +72,13 @@
 	- fixed to_dict() to return date_time format in true ISO 0000-00-00
 	  00:00:00
 	- fixed date object creation being turned into datetime
+
+0.2.13
+	- fix get_in() to properly use _create_obj_list()
+	- get_in() no longer catches exceptions (was returning an empty list)
+	- _create_obj_list() filters out docs that returned found: False to
+	  prevent an exception when creating the object
+	  - this has the effect of returning all found documents from list calls
+	  - instead of throwing exceptions / returning empty if a single doc fails
+	  - we believe this was the original intended behavior
+	- Fixed get_like_this()
