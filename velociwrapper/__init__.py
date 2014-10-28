@@ -9,7 +9,7 @@ import logging
 logger = logging.getLogger('Velociwrapper')
 
 # make sure this gets updated!
-__version__ = '0.2.13'
+__version__ = '0.2.14'
 
 dsn = ['localhost']
 default_index = 'es_model'
@@ -388,7 +388,7 @@ class VWCollection(object):
 	def _create_obj_list(self,es_rows):
 		retlist = []
 		for doc in es_rows:
-			if doc.get('found') and doc.get('_source'):
+			if doc.get('_source'):
 				retlist.append( self._create_obj(doc) )
 
 		return retlist
