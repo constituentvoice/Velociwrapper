@@ -4,7 +4,7 @@ import os
 
 setup(
 	name='Velociwrapper',
-	version='0.2.14',
+	version='0.2.15',
 	author='Chris Brown',
 	author_email='chris.brown@nwyc.com',
 	packages=['velociwrapper'],

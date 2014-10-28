@@ -9,7 +9,7 @@ import logging
 logger = logging.getLogger('Velociwrapper')
 
 # make sure this gets updated!
-__version__ = '0.2.14'
+__version__ = '0.2.15'
 
 dsn = ['localhost']
 default_index = 'es_model'
@@ -442,11 +442,13 @@ class VWCollection(object):
 			return None
 
 	def get_in(self, ids):
-		res = self._es.mget(index=self.idx,doc_type=self.type,body={'ids':ids})
-		if res and res.get('docs'):
-			return self._create_obj_list( res.get('docs') )
-		else:
-			return []
+		
+		if len(ids) > 0: # check for ids. empty list returns an empty list (instead of exception)
+			res = self._es.mget(index=self.idx,doc_type=self.type,body={'ids':ids})
+			if res and res.get('docs'):
+				return self._create_obj_list( res.get('docs') )
+
+		return []
 
 	def get_like_this(self,doc_id):
 		res = self._es.mlt(index=self.idx,doc_type=self.type,id=doc_id )
@@ -658,8 +660,3 @@ class VWCollection(object):
 			bulk_docs.append( {'_op_type': 'index', '_type': this_type, '_index': this_idx, '_id': this_id, '_source': this_dict } )
 
 		return helpers.bulk(self._es,bulk_docs,chunk_size=self.bulk_chunk_size)
-		
-
-
-
-

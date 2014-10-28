@@ -82,5 +82,9 @@
 	  - instead of throwing exceptions / returning empty if a single doc fails
 	  - we believe this was the original intended behavior
 	- Fixed get_like_this()
+
 0.2.14
 	- fixed all() and search() (broken by the last update!)
+
+0.2.15
+	- fixed empty list passed to get_in() throwing exception
