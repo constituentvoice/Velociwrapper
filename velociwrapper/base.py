@@ -5,8 +5,9 @@ from uuid import uuid4
 import json
 import types
 import copy
-from .config import dsn,default_index,bulk_chunk_size,logger
-from . import relationship
+from .config import dsn,default_index,bulk_chunk_size,logger,es
+from .relationship import relationship
+from .es_types import * # yeah yeah I know its "bad"
 
 class ObjectDeletedError(Exception):
 	pass
@@ -31,7 +32,7 @@ class VWBase(object):
 
 		self._needs_update = False
 		self._watch = True
-		self._es = Elasticsearch( dsn )
+		self._es = es
 		self._deleted = False
 
 		if '__index__' not in dir(self):

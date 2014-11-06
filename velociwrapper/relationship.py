@@ -3,10 +3,9 @@ from datetime import date,datetime
 from dateutil import parser
 from uuid import uuid4
 import json
-import types
 import copy
 import logging
-from .config import dsn,default_index,registry,bulk_chunk_size,logger
+from .config import es,default_index,bulk_chunk_size,logger
 
 class relationship(object):
 	def __init__(self,ref_model,**kwargs):

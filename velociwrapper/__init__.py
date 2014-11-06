@@ -1,4 +1,4 @@
-from .collection import VWCollection,NoResultFound
+from .collection import VWCollection,NoResultsFound
 from .base import VWBase,ObjectDeletedError
 from .relationship import relationship
 

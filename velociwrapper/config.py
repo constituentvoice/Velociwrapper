@@ -60,4 +60,5 @@ if os.environ.get('VW_CONNECTION_PARAMS'):
 
 # Connect to elastic search
 # You can override this to create your own connection (though not from the environment)
+from elasticsearch import Elasticsearch
 es = Elasticsearch( dsn, **connection_params )
