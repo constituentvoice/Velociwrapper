@@ -88,3 +88,9 @@
 
 0.2.15
 	- fixed empty list passed to get_in() throwing exception
+
+0.3.0
+	- Split the module into multiple files
+	- moved module configuration into velociwrapper.config
+	- added types that coorespond to types used in ElasticSearch
+	- added reindex and create index functionality

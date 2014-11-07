@@ -8,6 +8,7 @@ import copy
 from .config import dsn,default_index,bulk_chunk_size,logger,es
 from .relationship import relationship
 from .es_types import * # yeah yeah I know its "bad"
+from .mapper import Mapper
 
 class ObjectDeletedError(Exception):
 	pass
@@ -241,3 +242,6 @@ class VWBase(object):
 	def more_like_this(self,**kwargs):
 		c = VWCollection(base_obj=self.__class__)
 		return c.get_like_this(self.id).all(**kwargs)
+
+	def describe(self):
+		return Mapper().describe(self)	
