@@ -1,6 +1,73 @@
 from datetime import date,datetime
+from dateutil import parser
 import types
 from .config import logger
+import re
+
+# check the python type and return the appropriate ESType class
+def create_es_type(self, value):
+	
+	# check if we're already an es type
+	try:
+		if value.__metaclass__ == ESType:
+			return value
+	except:
+		pass
+
+	if type(value) == str or type(value) == unicode:
+		# strings could be a lot of things
+		# try to see if it might be a date
+		try:
+			value = parser.parse(value)
+			return DateTime(value)
+		except:
+			pass
+
+		# see if it might be an ip address
+		try:
+			matches = re.search( '^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$', value )
+			if matches:
+				valid_ip = True
+				for g in matches.groups():
+					g = int(g)
+					if g < 1 or g > 254:
+						# nope
+						valid_ip = False
+				
+				if valid_ip:
+					return IP(value)
+		except:
+			pass
+
+		if type(value) == unicode:
+			if value.isnumeric():
+				return Number(value)
+			else:
+				return String(value)
+
+		return String(value)
+
+	if type(value) == int:
+		return Integer(value)
+	
+	if type(value) == bool:
+		return Boolean(value)
+
+	if type(value) == long:
+		return Long(value)
+	
+	if type(value) == float:
+		return Float(value)
+
+	if isinstance(value,date):
+		return Date(value)
+
+	if isinstance(value,datetime):
+		return DateTime(value)
+
+	# if here, just return the value as is
+	return value
+
 
 class ESType(type):
 	def __new__(cls,clsname,bases,dct):
@@ -65,7 +132,6 @@ class ESType(type):
 		
 		return super(ESType,cls).__new__(cls,clsname,bases,dct)
 
-		
 	def __call__( self, *args, **kwargs ):
 		# set options passed as keyword args
 		# stupid that i have to list this again >:-o
@@ -130,13 +196,22 @@ class TokenCount(Number):
 	__metaclass__ = ESType
 	analyzer = 'standard'
 
-class Date(datetime):
+class DateTime(datetime):
 	__metaclass__ = ESType
 	precision_step = 16
 	ignore_malformed = False
 
+	def date(self):
+		value = super(DateTime,self).date()
+		return Date(value)
+
 	# TODO allow format changes
 	# for now just does default
+
+class Date(date):
+	__metaclass__ = ESType
+	precision_step = 16
+	ignore_malformed = False
 
 class Boolean(int):
 	# can't extend bool so ... whatever
@@ -147,14 +222,13 @@ class Binary(object):
 	compress = False
 	compress_threshold = -1
 
-class IP(object):
+class IP(String):
 	__metaclass__ = ESType
 
-	def __init__(self,ip="0.0.0.0"):
-		self.ip = ip
-	
-	def __str__(self):
-		return unicode( self.ip )
+	def __init__(self,value):
+		if not value:
+			value = '0.0.0.0'
+		super(IP,self).__init__(value)
 
 class GeoPoint(object):
 	__metaclass__ = ESType

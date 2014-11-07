@@ -45,20 +45,9 @@ class VWBase(object):
 
 				# check if we were called with a variable. If so set
 				if kwargs.get(k):
-					v = kwargs.get(k)
-					if (isinstance(self.__class__.__dict__.get(k), date) or isinstance(self.__class__.__dict__.get(k),datetime) ) and not (isinstance(v, date) or isinstance(v,datetime)):
-						try:
-							v = parser.parse(v)
+					new_v = create_es_type(kwargs.get(k))
+					setattr(self,k,new_v)
 
-							# convert dates back to date object value (instead of datetime returned by parser.parse)
-							# checking "not datetime" because datetime derives from date ("is date" is always true)
-							if not isinstance( self.__class__.__dict__.get(k), datetime ):
-								v = v.date()
-						except:
-							pass
-
-				# set the instance variable to the appropriate values
-				setattr(self,k,v)
 
 		if 'id' not in kwargs:
 			self.id = str(uuid4())
@@ -147,6 +136,23 @@ class VWBase(object):
 
 		# attribute is NOT a relationship
 		else:
+			currvalue = create_es_type(currvalue) # create it as an es_type
+			try:
+				if currvalue.__metaclass__ == ESType:
+					cls = currvalue.__metaclass__
+					set_value_cls = False
+
+					try:
+						if value.__metaclass__ != EStype:
+							set_value_cls = True
+					except AttributeError:
+						set_value_cls = True
+
+					if set_value_cls:
+						value = cls(value)
+			except AttributeError:
+				pass
+
 								
 			if name[0] == '_':
 				# special rules for names with underscores.
@@ -155,13 +161,13 @@ class VWBase(object):
 					object.__setattr__(self,name,value)  # don't copy this stuff. Set it as is
 
 			else:
+				# find es type from key if it exists
+				
 				object.__setattr__(self,name,copy.deepcopy(value))
 
 				if self._watch:
 					object.__setattr__(self,'_needs_update',True)
 					object.__setattr__(self,'_watch',False)
-
-
 
 	def commit(self):
 		# save in the db
