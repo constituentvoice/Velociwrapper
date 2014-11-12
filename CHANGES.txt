@@ -93,4 +93,14 @@
 	- Split the module into multiple files
 	- moved module configuration into velociwrapper.config
 	- added types that coorespond to types used in ElasticSearch
-	- added reindex and create index functionality
+	- added mapper tools to include reindex and create index functionality
+	- added exact()
+		- search for the exact phrase
+		- can be combined with other queries using filter_by (but not ids)
+		- will warn if the search is a string but the field is analyzed
+		- can accept a list
+		- only one field can be an exact match (may change in the future)
+	- added id/ids parameter to filter_by()
+		- filter in a particular set of ids.
+		- overrides other explicit filters (exact, range, geo)
+		-

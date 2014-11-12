@@ -25,6 +25,9 @@ default_index = 'es_model'
 # Default number of entries on bulk requests
 bulk_chunk_size = 1000
 
+# Default number of matches to return per page
+results_per_page = 50
+
 ### you should't edit this file at all but definitely don't edit below here! ###
 
 
@@ -57,6 +60,10 @@ if os.environ.get('VW_CONNECTION_PARAMS'):
 	except:
 		logger.warning('Unable to parse VW_CONNECTION_PARAMS from environment. Using default.')
 		logger.debug( format_exc() )
+
+if os.environ.get('VW_RESULTS_PER_PAGE'):
+	results_per_page = os.environ.get('results_per_page')
+	logger.debug('results_per_page set from environment')
 
 # Connect to elastic search
 # You can override this to create your own connection (though not from the environment)

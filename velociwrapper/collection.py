@@ -6,25 +6,27 @@ import json
 import types
 import copy
 import logging
-from .config import dsn,default_index,bulk_chunk_size,logger
+from .config import es,dsn,default_index,bulk_chunk_size,results_per_page, logger
+from .es_types import *
 
 # Raised when no results are found for one()
 class NoResultsFound(Exception):
 	pass
 
+# raised if the body of a search in _build_body() gets unexpected conditions
+class MalformedBodyError(Exception):
+	pass
 
 class VWCollection(object):
 	def __init__(self,items=[],**kwargs):
 		self.bulk_chunk_size = bulk_chunk_size
 
-		if kwargs.get('bulk_chunk_size'):
-			self.bulk_chunk_size = kwargs.get('bulk_chunk_size')
+		self.bulk_chunk_size = kwargs.get('bulk_chunk_size', bulk_chunk_size)
 
-		self.results_per_page = 50
 		self._sort = []
 		
-		if kwargs.get('results_per_page'):
-			self.results_per_page = kwargs.get('results_per_page')
+		self.results_per_page = kwargs.get('results_per_page', results_per_page)
+
 
 		if kwargs.get('base_obj'):
 			self.base_obj = kwargs.get('base_obj')
@@ -34,7 +36,7 @@ class VWCollection(object):
 			except AttributeError:
 				raise AttributeError('Base object must contain a model or pass base_obj')
 
-		self._es = Elasticsearch( dsn )
+		self._es = es
 
 		if '__index__' in dir(self.base_obj):
 			idx = self.base_obj.__index__
@@ -47,6 +49,11 @@ class VWCollection(object):
 		self.type = self.base_obj.__type__
 		self._special_body = {}
 		self._items = items # special list of items that can be committed in bulk
+
+		# these values are used in the _build_body() to determine where additional _build_body()
+		# options should exist. Defaults to and/must
+		self._last_top_level_boolean = None
+		self._last_boolean = None
 
 	def _create_obj_list(self,es_rows):
 		retlist = []
@@ -78,19 +85,60 @@ class VWCollection(object):
 	def filter_by( self, condition = 'and',**kwargs ):
 		groups = []
 		for k,v in kwargs.iteritems():
-			groups.append( str(k) + ':"' + str(v) + '"')
+			if k == 'id' or k == 'ids':
+				id_filter = v
+				if not isinstance(id_filter, list ):
+					id_filter = [id_filter]
+
+				self._build_body( filter={"ids": {"values": id_filter } } )
+			else:
+				search_value = ''
+				if isinstance(v, list):
+					# lists are treat as like "OR"
+					search_value = " or ".join( [ unicode(vitem) for vitem in v] )
+					search_value = "(" + search_value + ")"
+				else:
+					search_value = unicode(v)
+
+				groups.append( unicode(k) + ':"' + search_value + '"')
 
 		conditions = {
 			'and': self.and_,
 			'or': self.or_
 		}
+		
+		# if everything was by ID there may be no groups
+		if groups:
+			query = conditions[condition.lower()](*groups)
 
-		query = conditions[condition.lower()](*groups)
+			#if condition == 'and':
+			#	query = self.and_(*groups)
+			
+			return self.search( query )
+		else:
+			return self
 
-		if condition == 'and':
-			query = self.and_(*groups)
+	def exact( self, field, value ):
+		try:
+			field_template = getattr( self.base_obj, field)
 
-		return self.search( query )
+			if type(field_template) != ESType:
+				field_template = create_es_type( field_template )
+
+			for estype in [String,IP,Attachment]:
+				if isinstance( field_template, estype ) and field_template.analyzed == True:
+					logger.warn( str(estype.__class__.__name__) + ' types may not exact match correctly if they are analyzed' )
+
+		except AttributeError:
+			logger.warn( str(field) + ' is not in the base model.' )
+		
+		if isinstance(value, list):
+			self._build_body( filter={"terms": { field: value } } )
+		else:
+			self._build_body( filter={"term": { field: value } } )
+
+		return self
+		
 
 	def or_(self,*args):
 		return ' OR '.join(args)
@@ -132,6 +180,7 @@ class VWCollection(object):
 	def clear_previous_search( self ):
 		self._raw = {}
 		self._search_params = []
+		self._special_body = {}
 
 	def _create_search_params( self ):
 		q = {
@@ -148,7 +197,7 @@ class VWCollection(object):
 			q['body'] = {'query':{'match_all':{} } }
 		
 
-		# this allows for searching along with geo and range queries
+		# this is the newer search by QDSL
 		if self._special_body:
 			q['body'] = self._special_body
 		
@@ -208,6 +257,58 @@ class VWCollection(object):
 
 	# builds query bodies
 	def _build_body( self, **kwargs ):
+		
+
+		_bool_condition = kwargs.get('condition')
+
+		bool_set_default = False
+		if not _bool_condition:
+			if self._last_boolean:
+				_bool_condition = self._last_boolean
+			else:
+				_bool_condition = 'must'
+				bool_set_default = True
+
+		try:
+			del kwargs['condition']
+		except KeyError:
+			pass
+
+		# translate standard booleans
+		# and = must
+		# not = must_not
+		# or = should with minimum_should_match=1 (1 is default. You can still set it)
+
+		_secondary_bool = None 	# this is when explicits are set, the secondary needs to be set as well if bool is explicit
+
+		if _bool_condition == 'and':
+			_bool_condition = 'must'
+		elif _bool_condition = 'or':
+			_bool_condition = 'should'
+		elif _bool_condition = 'not':
+			_bool_condition = 'must_not'
+
+		# this is for things like geo_distance where we explicitly want the true and/or/not
+		elif _bool_condition = 'explicit_and':
+			_bool_condition = 'and'
+			_secondary_bool = 'must'
+		elif _bool_condition = 'explicit_or':
+			_bool_condition = 'or'
+			_secondary_bool = 'should'
+		elif _bool_condition = 'explicit_not':
+			_bool_condition = 'not'
+			_secondary_bool = 'must_not'
+
+		_minimum_should_match = 1
+		if kwargs.get('minimum_should_match'):
+			_minimum_should_match = kwargs.get('minimum_should_match')
+			del kwargs['minimum_should_match']
+
+		_with_explicit = None
+		if kwargs.get('with_explicit'):
+			_with_explicit = kwargs.get('with_explicit').lower()
+			del kwargs['with_explicit']
+
 		if not self._special_body:
 			self._special_body = { "query": {} }
 		
@@ -216,16 +317,153 @@ class VWCollection(object):
 				current_q = self._special_body.get('query')
 
 				self._special_body['query']['filtered'] = { 'query': current_q, 'filter':{}  }
-			
-			
 
-			self._special_body['query']['filtered']['filter'].update( kwargs.get('filter'))
-		elif kwargs.get('query'):
-			if self._special_body.get('query').get('filtered'):
-				self._special_body.get('query').get('filtered').get('query').update(kwargs.get('query'))
+			#self._special_body['query']['filtered']['filter'].update( kwargs.get('filter'))
+			
+			# do we have any top level and/or/not filters already specified?
+			_filter = self._special_body.get('query').get('filtered').get('filter')
+			has_conditions = next( cond for cond in ['and','or','not'] if cond in _filter )
+			
+			if has_conditions:
+
+				if _bool_condition in ['and','or','not']:
+					if _bool_condition in _filter:
+						if _filter[_bool_condition]:
+							if not isinstance(_filter.get(_bool_condition, list) ):
+								self._special_body['query']['filtered']['filter'][_bool_condition] = [_filter[_bool_condition]]
+
+							self._special_body['query']['filtered']['filter'][_bool_condition].append( kwargs.get('filter') )
+							_filter = self._special_body['query']['filtered']['filter']
+
+					elif _filter:
+						self._special_body['query']['filtered']['filter'] = { _bool_condition: [_filter] }
+						_filter = self._special_body.get('query').get('filtered').get('filter')
+						_filter.append( kwargs.get('filter') )
+						
+					else:
+						self._special_body['query']['filtered']['filter'] = kwargs.get('filter')
+
+					self._last_top_level_boolean = _bool_condition # for subsequent calls
+
+				else:
+					# we have to find the bool
+						
+					# if we have top level conditions then bool must appear inside one of them
+					# 1. Try to use the specified position with_explicit=value. If it doesn't exist then fall through (and warn)
+					# 2. Use the last precidence specified (if it was specified)
+					# 3. try in the order of AND, OR, NOT
+					# 4. If none have bools, add the bool to the first condition that exists (in the order of 'and','or','not') (using has_conditions whcih will be set to teh appropriate value)
+					
+					set_on_condition = False
+					if _with_explicit and _filter.get(_with_explicit):
+						set_on_condition = _with_explicit
+						
+						# set the top level bool to the explicit setting
+						self._last_top_level_boolean = _with_explicit
+
+					elif self._last_top_level_boolean and _filter.get(_last_top_level_boolean):
+						set_on_condition = _last_top_level_boolean
+					else:
+						set_on_condition = next( cond for cond in ['and','or','not'] if _filter.get(cond) and _filter.get(cond).get('bool') )
+
+					# if its still not set:
+					if not set_on_condition:
+						set_on_condition = has_conditions # has_conditions will be set to the first existing condition in order of ops
+				
+					if set_on_condition in _filter:
+						if _filter.get( set_on_condition ).get('bool'):
+							if _filter.get(set_on_condition).get('bool').get(_bool_condition):
+								if isinstance(_filter.get(set_on_condition).get('bool').get(_bool_condition), list):
+									_filter.get(set_on_condition).get('bool').get(_bool_condition).append(kwargs.get('filter'))
+								else:
+									current_filter = _filter.get(set_on_condition).get('bool').get(_bool_condition)
+									self._special_body['query']['filtered']['filter']['bool'][_bool_condition] = [current_filter, kwargs.get('filter')]
+									_filter = self._special_body['query']['filtered']['filter']
+							else:
+								_filter.get(set_on_condition).get('bool')[_bool_condition] = kwargs.get('filter')
+
+
+						else:
+							current_filter = _filter.get(set_on_condition)
+							self._special_body['query']['filter']['filtered'][set_on_condition] = {'bool': { _bool_condition: current_filter } }
+							_filter = self._special_body['query']['filter']['filtered']
+
+							_filter[set_on_condition]['bool'][_bool_condition] = kwargs.get('filter')
+
+						if 'bool' in _filter[set_on_condition]:
+							if _minimum_should_match != 1:
+								_filter[set_on_condition]['bool']['minimum_should_match'] = _minimum_should_match
+
+							if kwargs.get('boost'):
+								_filter[set_on_condition]['bool']['boost'] = kwargs.get('boost')
+					else:
+						# this should never happen
+						raise MalformedBodyError
+
 
 			else:
-				self._special_body.get('query').update(kwargs.get('query'))
+				# this is a normal boolean request
+				if _filter.get('bool'):
+					if _filter.get('bool').get(_bool_condition):
+						if isinstance(_filter.get('bool').get(_bool_condition), list ):
+							_filter.get('bool').get(_bool_condition).append( kwargs.get('filter') )
+						else:
+							current_filter = _filter.get('bool').get(_bool_condition)
+							self._special_body['query']['filter']['filtered']['bool'][_bool_condition] = [current_filter, kwargs.get('filter')]
+					else:
+						_filter['bool'][_bool_condition] = kwargs.get('filter')
+
+				elif _filter:
+					current_filter = _filter
+					self._special_body['query']['filtered']['filter'] = {'bool': { _bool_condition: [current_filter, kwargs.get('filter')] } }
+					_filter = self._special_body['query']['filtered']['filter']
+				else:
+					self._special_body['query']['filtered']['filter'] = kwargs.get('filter')
+					_filter = self._special_body['query']['filtered']['filter']
+
+
+				if 'bool' in _filter:
+					if _minimum_should_match != 1:
+						_filter['bool']['minimum_should_match'] = _minimum_should_match
+
+					if kwargs.get('boost'):
+						_filter['bool']['boost'] = kwargs.get('boost')
+
+
+		elif kwargs.get('query'):
+			if 'filtered' in self._special_body.get('query'):
+				query = self._special_body.get('filtered').get('filter')
+
+			else:
+				query = self._special_body
+
+			if query.get('query'):
+				if 'bool' in query.get('query'):
+					if _bool_condition in query.get('query').get('bool'):
+						if isinstance(query.get('query').get('bool').get(_bool_condition), list):
+							query.get('query').get('bool').get(_bool_condition).append( kwargs.get('query') )
+						else:
+							current_q = query.get('query').get('bool').get(_bool_condition)
+
+							query['query']['bool'][_bool_conditon] = [current_q, kwargs.get('query')]
+					else:
+						query['query']['bool'][_bool_condition] = kwargs.get('filter')
+
+				else:
+					current_q = query['query']
+					query['query'] = {'bool': { _bool_condition: [current_q, kwargs.get('query')] } }
+
+			else:
+				query['query'] = kwargs.get('filter')
+	
+			if 'bool' in query.get('query'):
+				if _minimum_should_match != 1:
+					query['query']['bool']['minimum_should_match'] = _minimum_should_match
+
+				if kwargs.get('boost'):
+					query['query']['bool']['boost'] = kwargs.get('boost')
+
+		
 
 	def _special_body_is_filtered(self):
 		return (self._special_body and self._special_body.get('query').get('filtered'))
