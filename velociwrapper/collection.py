@@ -1,12 +1,13 @@
 from elasticsearch import Elasticsearch, NotFoundError,helpers
 from datetime import date,datetime
-from dateutil import parser
 from uuid import uuid4
 import json
 import types
 import copy
 import logging
-from .config import es,dsn,default_index,bulk_chunk_size,results_per_page, logger
+from . import config
+from .config import logger
+#from .config import es,dsn,default_index,bulk_chunk_size,results_per_page, logger
 from .es_types import *
 
 # Raised when no results are found for one()
@@ -19,13 +20,12 @@ class MalformedBodyError(Exception):
 
 class VWCollection(object):
 	def __init__(self,items=[],**kwargs):
-		self.bulk_chunk_size = bulk_chunk_size
 
-		self.bulk_chunk_size = kwargs.get('bulk_chunk_size', bulk_chunk_size)
+		self.bulk_chunk_size = kwargs.get('bulk_chunk_size', config.bulk_chunk_size)
 
 		self._sort = []
 		
-		self.results_per_page = kwargs.get('results_per_page', results_per_page)
+		self.results_per_page = kwargs.get('results_per_page', config.results_per_page)
 
 
 		if kwargs.get('base_obj'):
@@ -36,12 +36,12 @@ class VWCollection(object):
 			except AttributeError:
 				raise AttributeError('Base object must contain a model or pass base_obj')
 
-		self._es = es
+		self._es = Elasticsearch(config.dsn)
 
 		if '__index__' in dir(self.base_obj):
 			idx = self.base_obj.__index__
 		else:
-			idx = default_index
+			idx = config.default_index
 
 		self._search_params = []
 		self._raw = {}
@@ -78,45 +78,43 @@ class VWCollection(object):
 		self._raw = raw_request
 		return self
 
-	def _do_search(self,q):
-		results = self._es.search(index=self.idx,q=q,doc_type=self.type)
-		return self._create_obj_list( results.get('hits').get('hits') )
-
 	def filter_by( self, condition = 'and',**kwargs ):
-		groups = []
 		for k,v in kwargs.iteritems():
 			if k == 'id' or k == 'ids':
 				id_filter = v
 				if not isinstance(id_filter, list ):
 					id_filter = [id_filter]
 
-				self._build_body( filter={"ids": {"values": id_filter } } )
+				self._build_body( filter={"ids": {"values": id_filter } }, condition=condition )
 			else:
-				search_value = ''
+				try:
+					analyzed = is_analyzed( getattr(self.base_obj, k ) )
+				except AttributeError:
+					analyzed = is_analyzed( v )
+
 				if isinstance(v, list):
 					# lists are treat as like "OR"
-					search_value = " or ".join( [ unicode(vitem) for vitem in v] )
-					search_value = "(" + search_value + ")"
+					#search_value = " or ".join( [ unicode(vitem) for vitem in v] )
+					#search_value = "(" + search_value + ")"
+
+					filter_terms = []
+					for item in v:
+						if analyzed:
+							self._build_body(query={"match": { k: item } }, condition="should")
+						else:
+							filter_terms.append(item)
+
+
+					if filter_terms:
+						self._build_body(filter={"terms": {k, filter_terms}}, condition=condition )
 				else:
-					search_value = unicode(v)
+					#search_value = unicode(v)
+					if analyzed:
+						self._build_body(query={"match": { unicode(k): v }}, condition=condition)
+					else:
+						self._build_body(filter={"term": { unicode(k): v }}, condition=condition)
 
-				groups.append( unicode(k) + ':"' + search_value + '"')
-
-		conditions = {
-			'and': self.and_,
-			'or': self.or_
-		}
-		
-		# if everything was by ID there may be no groups
-		if groups:
-			query = conditions[condition.lower()](*groups)
-
-			#if condition == 'and':
-			#	query = self.and_(*groups)
-			
-			return self.search( query )
-		else:
-			return self
+		return self
 
 	def exact( self, field, value ):
 		try:
@@ -279,25 +277,21 @@ class VWCollection(object):
 		# not = must_not
 		# or = should with minimum_should_match=1 (1 is default. You can still set it)
 
-		_secondary_bool = None 	# this is when explicits are set, the secondary needs to be set as well if bool is explicit
 
 		if _bool_condition == 'and':
 			_bool_condition = 'must'
-		elif _bool_condition = 'or':
+		elif _bool_condition == 'or':
 			_bool_condition = 'should'
-		elif _bool_condition = 'not':
+		elif _bool_condition == 'not':
 			_bool_condition = 'must_not'
 
 		# this is for things like geo_distance where we explicitly want the true and/or/not
-		elif _bool_condition = 'explicit_and':
+		elif _bool_condition == 'explicit_and':
 			_bool_condition = 'and'
-			_secondary_bool = 'must'
-		elif _bool_condition = 'explicit_or':
+		elif _bool_condition == 'explicit_or':
 			_bool_condition = 'or'
-			_secondary_bool = 'should'
-		elif _bool_condition = 'explicit_not':
+		elif _bool_condition == 'explicit_not':
 			_bool_condition = 'not'
-			_secondary_bool = 'must_not'
 
 		_minimum_should_match = 1
 		if kwargs.get('minimum_should_match'):
@@ -313,16 +307,22 @@ class VWCollection(object):
 			self._special_body = { "query": {} }
 		
 		if kwargs.get('filter'):
-			if not self._special_body.get('query').get('filtered'):
-				current_q = self._special_body.get('query')
+			if 'filtered' not in self._special_body.get('query'):
+				current_q = None
+				if self._special_body.get('query'):
+					current_q = copy.deepcopy(self._special_body.get('query'))
+					self._special_body = {'query': {'filtered': {} } }
+				self._special_body['query']['filtered'] = { 'filter':{}  }
 
-				self._special_body['query']['filtered'] = { 'query': current_q, 'filter':{}  }
+				if current_q:
+					self._special_body['query']['filtered']['query'] = current_q
 
-			#self._special_body['query']['filtered']['filter'].update( kwargs.get('filter'))
-			
 			# do we have any top level and/or/not filters already specified?
 			_filter = self._special_body.get('query').get('filtered').get('filter')
-			has_conditions = next( cond for cond in ['and','or','not'] if cond in _filter )
+			try:
+				has_conditions = next( cond for cond in ['and','or','not'] if cond in _filter )
+			except StopIteration:
+				has_conditions = None
 			
 			if has_conditions:
 
@@ -364,7 +364,10 @@ class VWCollection(object):
 					elif self._last_top_level_boolean and _filter.get(_last_top_level_boolean):
 						set_on_condition = _last_top_level_boolean
 					else:
-						set_on_condition = next( cond for cond in ['and','or','not'] if _filter.get(cond) and _filter.get(cond).get('bool') )
+						try:
+							set_on_condition = next( cond for cond in ['and','or','not'] if _filter.get(cond) and _filter.get(cond).get('bool') )
+						except StopIteration:
+							set_on_condition = False
 
 					# if its still not set:
 					if not set_on_condition:
@@ -376,7 +379,7 @@ class VWCollection(object):
 								if isinstance(_filter.get(set_on_condition).get('bool').get(_bool_condition), list):
 									_filter.get(set_on_condition).get('bool').get(_bool_condition).append(kwargs.get('filter'))
 								else:
-									current_filter = _filter.get(set_on_condition).get('bool').get(_bool_condition)
+									current_filter = copy.deepcopy(_filter.get(set_on_condition).get('bool').get(_bool_condition))
 									self._special_body['query']['filtered']['filter']['bool'][_bool_condition] = [current_filter, kwargs.get('filter')]
 									_filter = self._special_body['query']['filtered']['filter']
 							else:
@@ -384,8 +387,8 @@ class VWCollection(object):
 
 
 						else:
-							current_filter = _filter.get(set_on_condition)
-							self._special_body['query']['filter']['filtered'][set_on_condition] = {'bool': { _bool_condition: current_filter } }
+							current_filter = copy.deepcopy(_filter.get(set_on_condition))
+							self._special_body['query']['filtered']['filter'][set_on_condition] = {'bool': { _bool_condition: current_filter } }
 							_filter = self._special_body['query']['filter']['filtered']
 
 							_filter[set_on_condition]['bool'][_bool_condition] = kwargs.get('filter')
@@ -408,13 +411,13 @@ class VWCollection(object):
 						if isinstance(_filter.get('bool').get(_bool_condition), list ):
 							_filter.get('bool').get(_bool_condition).append( kwargs.get('filter') )
 						else:
-							current_filter = _filter.get('bool').get(_bool_condition)
+							current_filter = copy.deepcopy(_filter.get('bool').get(_bool_condition))
 							self._special_body['query']['filter']['filtered']['bool'][_bool_condition] = [current_filter, kwargs.get('filter')]
 					else:
 						_filter['bool'][_bool_condition] = kwargs.get('filter')
 
 				elif _filter:
-					current_filter = _filter
+					current_filter = copy.deepcopy(_filter)
 					self._special_body['query']['filtered']['filter'] = {'bool': { _bool_condition: [current_filter, kwargs.get('filter')] } }
 					_filter = self._special_body['query']['filtered']['filter']
 				else:
@@ -432,7 +435,7 @@ class VWCollection(object):
 
 		elif kwargs.get('query'):
 			if 'filtered' in self._special_body.get('query'):
-				query = self._special_body.get('filtered').get('filter')
+				query = self._special_body.get('query').get('filtered')
 
 			else:
 				query = self._special_body
@@ -443,18 +446,18 @@ class VWCollection(object):
 						if isinstance(query.get('query').get('bool').get(_bool_condition), list):
 							query.get('query').get('bool').get(_bool_condition).append( kwargs.get('query') )
 						else:
-							current_q = query.get('query').get('bool').get(_bool_condition)
+							current_q = copy.deepcopy(query.get('query').get('bool').get(_bool_condition))
 
 							query['query']['bool'][_bool_conditon] = [current_q, kwargs.get('query')]
 					else:
 						query['query']['bool'][_bool_condition] = kwargs.get('filter')
 
 				else:
-					current_q = query['query']
+					current_q = copy.deepcopy(query['query'])
 					query['query'] = {'bool': { _bool_condition: [current_q, kwargs.get('query')] } }
 
 			else:
-				query['query'] = kwargs.get('filter')
+				query['query'] = kwargs.get('query')
 	
 			if 'bool' in query.get('query'):
 				if _minimum_should_match != 1:

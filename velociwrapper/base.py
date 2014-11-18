@@ -5,10 +5,13 @@ from uuid import uuid4
 import json
 import types
 import copy
-from .config import dsn,default_index,bulk_chunk_size,logger,es
+#from .config import dsn,default_index,bulk_chunk_size,logger
+from . import config
+from .config import logger
+import elasticsearch
 from .relationship import relationship
 from .es_types import * # yeah yeah I know its "bad"
-from .mapper import Mapper
+from traceback import format_exc
 
 class ObjectDeletedError(Exception):
 	pass
@@ -33,11 +36,11 @@ class VWBase(object):
 
 		self._needs_update = False
 		self._watch = True
-		self._es = es
+		self._es = elasticsearch.Elasticsearch( config.dsn )
 		self._deleted = False
 
 		if '__index__' not in dir(self):
-			self.__index__ = default_index
+			self.__index__ = config.default_index
 
 		for k in dir(self):
 			v = getattr(self,k)
@@ -46,8 +49,7 @@ class VWBase(object):
 
 				# check if we were called with a variable. If so set
 				if kwargs.get(k):
-					new_v = create_es_type(kwargs.get(k))
-					setattr(self,k,new_v)
+					setattr(self,k,kwargs.get(k))
 
 
 		if 'id' not in kwargs:
@@ -137,34 +139,78 @@ class VWBase(object):
 
 		# attribute is NOT a relationship
 		else:
-			currvalue = create_es_type(currvalue) # create it as an es_type
-			try:
-				if currvalue.__metaclass__ == ESType:
-					cls = currvalue.__metaclass__
-					set_value_cls = False
 
-					try:
-						if value.__metaclass__ != EStype:
-							set_value_cls = True
-					except AttributeError:
-						set_value_cls = True
-
-					if set_value_cls:
-						value = cls(value)
-			except AttributeError:
-				pass
-
-								
 			if name[0] == '_':
+				
 				# special rules for names with underscores.
 				# seting the _ values will not trigger an update. 
 				if name not in dir(self) or name in ['_set_by_query','_deleted','_watch','_new','_no_ex']:
 					object.__setattr__(self,name,value)  # don't copy this stuff. Set it as is
 
 			else:
-				# find es type from key if it exists
+				currvalue = create_es_type(currvalue) # create it as an es_type
+				value = copy.deepcopy(value) # copy first before we manipulate
+			
+				try:
+					if value._metaclass__ == ESType:
+						set_value_cls = False
+					else:
+						set_value_cls = True
+				except AttributeError:
+					set_value_cls = True
 				
-				object.__setattr__(self,name,copy.deepcopy(value))
+				if set_value_cls:
+
+					type_enforcement = False
+					try:
+						type_enforcement = self.__strict_types__
+					except AttributeError:
+						try:
+							type_enforcement = config.strict_types
+						except AttributeError:
+							type_enforcement = False
+
+					try:
+						if currvalue.__metaclass__ == ESType:
+							cls = currvalue.__class__
+							params = currvalue.es_args()
+
+							# try to set the value as the same class.
+							try:
+								value = cls(value, **params)
+							except:
+								# value didn't set. Try to create it as its own es type
+								test_value = create_es_type(value)
+
+								# dates and times are special
+								if isinstance(test_value,DateTime):
+									if isinstance(currvalue, DateTime):
+										value = DateTime(test_value.year, test_value.month, test_value.day, test_value.hour, test_value.minute, test_value.second, test_value.microsecond, test_value.tzinfo, **params)
+									elif isinstance(currvalue, Date):
+										value = Date(test_value.year, test_value.month, test_value.day,**params)
+									else:
+										value = test_value
+
+								else:
+									value = test_value
+
+
+							if type_enforcement:
+								try:
+									if value.__class__ != currvalue.__class__:
+										raise TypeError('strict type enforcement is enabled. ' + name + ' must be set with ' + currvalue.__class__.__name__)
+								except:
+									# errors were value isn't even a class will raise their own exception
+									# caught here to avoid attribute errors from this block being passed along below
+									raise
+
+					except AttributeError:
+						# currvalue couldn't be converted to an ESType
+						# we just fall back to regular types.
+						# if ES has an issue it will throw its own exception.
+						pass
+				
+				object.__setattr__(self,name,value)
 
 				if self._watch:
 					object.__setattr__(self,'_needs_update',True)
@@ -242,6 +288,3 @@ class VWBase(object):
 	def more_like_this(self,**kwargs):
 		c = VWCollection(base_obj=self.__class__)
 		return c.get_like_this(self.id).all(**kwargs)
-
-	def describe(self):
-		return Mapper().describe(self)	

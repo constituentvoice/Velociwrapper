@@ -3,9 +3,10 @@ from dateutil import parser
 import types
 from .config import logger
 import re
+from traceback import format_exc
 
 # check the python type and return the appropriate ESType class
-def create_es_type(self, value):
+def create_es_type(value):
 	
 	# check if we're already an es type
 	try:
@@ -19,8 +20,11 @@ def create_es_type(self, value):
 		# try to see if it might be a date
 		try:
 			value = parser.parse(value)
-			return DateTime(value)
+
+			if value:
+				return DateTime(value.year, value.month, value.day, value.hour, value.minute, value.second, value.microsecond, value.tzinfo)
 		except:
+			# not a date, just pass
 			pass
 
 		# see if it might be an ip address
@@ -60,18 +64,48 @@ def create_es_type(self, value):
 		return Float(value)
 
 	if isinstance(value,date):
-		return Date(value)
+		return Date(value.year, value.month, value.day )
 
 	if isinstance(value,datetime):
-		return DateTime(value)
+		return DateTime(value.year, value.month, value.day, value.hour, value.minute, value.second, value.microsecond, value.tzinfo)
 
 	# if here, just return the value as is
 	return value
 
+# this is to determine if the field should be analyzed 
+# based on type and settings. Used a lot to determine whether to use
+# term filters or matches
+# works with estypes and non-estypes
+def is_analyzed(value):
+	analyzed = True
+	check_defaults = False
+	try:
+		if value.__metaclass__ == ESType:
+			if isinstance(value, String):
+				analyzed = value.es_args().get(analyzed)
+				if analyzed == None:
+					analyzed = True
+
+			else:
+				analyzed = False
+		else:
+			check_defaults = True
+	except AttributeError:
+		check_defaults = True
+
+
+	if check_defaults:
+		if isinstance(value,str) or isinstance(value,unicode):
+			analyzed = True
+		else:
+			analyzed = False
+	
+	return analyzed
+
+
 
 class ESType(type):
 	def __new__(cls,clsname,bases,dct):
-
 		dct['__es_properties__'] = {
 			'store': False,
 			'analyzed': True,
@@ -107,8 +141,8 @@ class ESType(type):
 			for k in dir(self):
 				if k in self.__es_properties__:
 					v = getattr(self,k)
-					if not v:
-						v = self.__es_properties__.get(k)
+					#if not v:
+					#	v = self.__es_properties__.get(k)
 
 					keyname = k
 					if k[ len(k) - 1 ] == "_":
@@ -119,41 +153,61 @@ class ESType(type):
 
 					elif k == 'analyzed':
 						keyname = 'index'
-						if v:
+						if v or v == None:
 							v = 'analyzed'
 						else:
 							v = 'not_analyzed'
 					
-					prop_dict[keyname] = v
+					if v != None:	
+						prop_dict[keyname] = v
 
 			return prop_dict
 
+		# for recreating the arguments in a new instance
+		def get_es_arguments(self):
+			arg_dict = {}
+			for k in dir(self):
+				if k in self.__es_properties__:
+					v = getattr(self,k)
+					arg_dict[k] = v
+			return arg_dict
+
+
 		dct['prop_dict'] = get_prop_dict	
+		dct['es_args'] = get_es_arguments
 		
 		return super(ESType,cls).__new__(cls,clsname,bases,dct)
 
-	def __call__( self, *args, **kwargs ):
-		# set options passed as keyword args
-		# stupid that i have to list this again >:-o
-				
-		deletes = []
+	def __call__( cls, *args, **kwargs ):
+		
+		# we have to split kw args going to the base class
+		# and args that are for elastic search
+		# annoying but not a big deal
+		base_kwargs = {}
+		es_kwargs = {}
+		
 		for k,v in kwargs.iteritems():
-			if k in self.__es_properties__:
-				setattr(self,k,v)
-				deletes.append(k)
+			if k in cls.__es_properties__:
+				es_kwargs[k] = v
+			else:
+				base_kwargs[k] = v
+		
+		# fix for datetime calls. I really dont like this but I can't seem
+		# to hook it anywhere
 
-		# set defaults
-		for k,v in self.__es_properties__.iteritems():
-			try:
-				val = getattr(self,k)
-			except AttributeError:
-				if v != None:
-					setattr(self,k,v)
+		if len(args) == 1:
+			a = args[0]
+			if cls == DateTime and isinstance(a, datetime):
+				args = [a.year, a.month, a.day, a.hour, a.minute, a.second,a.microsecond, a.tzinfo]
+			elif cls == Date and isinstance(a,date):
+				args = [a.year,a.month,a.day]
+	
+		inst = super(ESType,cls).__call__(*args,**base_kwargs)
+		
+		for k,v in es_kwargs.iteritems():
+			setattr(inst, k, v ) # testing
 
-		for d in deletes:
-			del kwargs[d]
-
-		return super(ESType,self).__call__(*args,**kwargs)
+		return inst
 
 # converts strings to unicode
 class String(unicode):
@@ -224,11 +278,6 @@ class Binary(object):
 
 class IP(String):
 	__metaclass__ = ESType
-
-	def __init__(self,value):
-		if not value:
-			value = '0.0.0.0'
-		super(IP,self).__init__(value)
 
 class GeoPoint(object):
 	__metaclass__ = ESType
