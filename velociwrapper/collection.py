@@ -482,22 +482,8 @@ class VWCollection(object):
 		return self
 
 	def search_geo(self, field, distance, lat, lon):
-		return self.raw( {
-			"query": {
-				"filtered": { 
-					"query": {
-						"match_all": {}
-					},
-					"filter": {
-						"geo_distance": {
-							"distance": distance,
-							field: [ lon, lat ]
-						}
-					}
-				}
-			}
-		})
-
+		self._build_body( filter={"geo_distance": { "distance": distance, field: [lon,lat] } }, condition='explicit_and' )
+		return self
 	
 	def delete(self, **kwargs):
 		params = self._create_search_params()
