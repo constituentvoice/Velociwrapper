@@ -28,6 +28,9 @@ bulk_chunk_size = 1000
 # Default number of matches to return per page
 results_per_page = 50
 
+# Should we enforce strict types
+strict_types = False
+
 ### you should't edit this file at all but definitely don't edit below here! ###
 
 
@@ -50,8 +53,11 @@ if os.environ.get('VW_DEFAULT_INDEX'):
 
 
 if os.environ.get('VW_BULK_CHUNK_SIZE'):
-	bulk_chunk_size = os.environ.get('VW_BULK_CHUNK_SIZE')
-	logger.debug('bulk_chunk_size set from environment')
+	try:
+		bulk_chunk_size = int(os.environ.get('VW_BULK_CHUNK_SIZE'))
+		logger.debug('bulk_chunk_size set from environment')
+	except ValueError:
+		logger.warn('invalid value for VW_BULK_CHUNK_SIZE, expected integer. Using default')
 
 if os.environ.get('VW_CONNECTION_PARAMS'):
 	try:
@@ -61,9 +67,20 @@ if os.environ.get('VW_CONNECTION_PARAMS'):
 		logger.warning('Unable to parse VW_CONNECTION_PARAMS from environment. Using default.')
 		logger.debug( format_exc() )
 
+if os.environ.get('VW_STRICT_TYPES'):
+	try:
+		strict_types = int(os.environ.get('VW_STRICT_TYPES'))
+
+		logger.debug('strict_types set from environment')
+	except ValueError:
+		logger.warning('Invalid value for VW_STRICT_TYPES, expected 0 or 1. Using default')
+
 if os.environ.get('VW_RESULTS_PER_PAGE'):
-	results_per_page = os.environ.get('results_per_page')
-	logger.debug('results_per_page set from environment')
+	try:
+		results_per_page = int(os.environ.get('VW_RESULTS_PER_PAGE'))
+		logger.debug('results_per_page set from environment')
+	except ValueError:
+		logger.warning('Invalid value for VW_RESULTS_PER_PAGE. Expected integer. Using default.')
 
 # Connect to elastic search
 # You can override this to create your own connection (though not from the environment)

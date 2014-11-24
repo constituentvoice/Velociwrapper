@@ -106,48 +106,85 @@ def is_analyzed(value):
 
 class ESType(type):
 	def __new__(cls,clsname,bases,dct):
+		# default accepted properties on various classes
+		# the values are set by ES and are only here for completeness
 		dct['__es_properties__'] = {
-			'store': False,
-			'analyzed': True,
-			'term_vector': 'no',
-			'boost': '1.0',
-			'include_in_all':True,
-			'similarity':'default',
-			'fielddata':None,
-			'fields':None,
-			'meta_':None,
-			'precision_step':None,
-			'coerce_':None,
-			'type_':None,
-			'analyzer':None,
-			'ignore_malformed':None,
-			'compress':None,
-			'compress_threshold':None,
-			'lat_lon':None,
-			'geohash':None,
-			'geohash_precision':None,
-			'geohash_prefix':None,
-			'validate':None,
-			'validate_lat':None,
-			'validate_lon':None,
-			'normalize':None,
-			'normalize_lat':None,
-			'normalize_lon':None,
-			'tree':None
+			'Any': {
+				'index_name': '',
+				'store': False,
+				'boost': '1.0',
+				'null_value': None,
+				'include_in_all': True,
+				'doc_values': False,
+				'fielddata': {},
+				'copy_to': '',
+				'similarity': 'default',
+				'fields': {}
+			},
+			'String': {
+				'analyzed': True,
+				'norms': False,
+				'index_options': None,
+				'analyzer': 'default',
+				'index_analyzer': 'default',
+				'search_analyzer': 'default',
+				'ignore_above': 'default',
+				'position_offset_gap': 0,
+				'value_': '',
+				'boost_': '1.0'
+			},
+			'Number': {
+				'type': 'integer',
+				'index_': 'no',
+				'precision_step': 16,
+				'ignore_malformed': False,
+				'coerce': True
+			},
+			'Date': {
+				'format': 'dateOptionalTime',
+				'precision_step': 16,
+				'ignore_malformed': False
+			},
+			'Binary': {
+				'compress': False,
+				'compress_threshold': -1
+			},
+			'IP': {
+				'precision_step': 16
+			},
+			'GeoPoint': {
+				'lat_lon': False,
+				'geohash': False,
+				'geohash_precision': 12,
+				'geohash_prefix': False,
+				'validate': False,
+				'validate_lat': False,
+				'validate_lon': False,
+				'normalize': True,
+				'normalize_lat': False,
+				'normalize_lon': False,
+				'precision_step': 16
+			},
+			'GeoShape': {
+				'tree': 'geohash',
+				'tree_levels': '',
+				'distance_error_pct': 0.5
+			}
 		}
 
 		def get_prop_dict(self):
 			prop_dict = { "type": self.__class__.__name__.lower() }
+			name = self.__class__.__name__
 			for k in dir(self):
-				if k in self.__es_properties__:
+				if k in self.__es_properties__.get(name,[]) or k in self.__es_properties__.get('Any',[]):
 					v = getattr(self,k)
 					#if not v:
 					#	v = self.__es_properties__.get(k)
 
 					keyname = k
 					if k[ len(k) - 1 ] == "_":
-						if k == 'meta_':
-							keyname = '_meta'
+						if k in ['meta_','value_','boost_']:
+							keyname = '_' + k[0:len(k) - 1]
 						else:
 							keyname = k[ 0:len(k) - 1]
 
@@ -185,9 +222,9 @@ class ESType(type):
 		# annoying but not a big deal
 		base_kwargs = {}
 		es_kwargs = {}
-		
+		_name_ = cls.__name__
 		for k,v in kwargs.iteritems():
-			if k in cls.__es_properties__:
+			if k in cls.__es_properties__.get(_name_, []) or k in cls.__es_properties__.get('Any',[]):
 				es_kwargs[k] = v
 			else:
 				base_kwargs[k] = v

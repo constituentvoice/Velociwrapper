@@ -252,10 +252,18 @@ class VWCollection(object):
 			return results[0]
 		except IndexError:
 			raise NoResultsFound('No result found for one()')
-
+	
 	# builds query bodies
 	def _build_body( self, **kwargs ):
 		
+		exclusive = ['filter','query','constant_score_filter','constant_score_query']
+
+		excount = 0
+		for k,v in kwargs.iteritems():
+			if k in exclusive:
+				excount += 1
+				if excount > 1:
+					raise KeyError( '_build_body() can only accept one of "filter", "query", "constant_score_filter", or "constant_score_query"' )
 
 		_bool_condition = kwargs.get('condition')
 
@@ -305,20 +313,44 @@ class VWCollection(object):
 
 		if not self._special_body:
 			self._special_body = { "query": {} }
-		
-		if kwargs.get('filter'):
-			if 'filtered' not in self._special_body.get('query'):
+
+		# filters can be constant score or filtered at the top level. The wrapper makes a bunch more sense
+		filtered_type = 'filtered'
+		set_query = kwargs.get('query')
+		set_filter = kwargs.get('filter')
+		if kwargs.get('constant_score_filter') or kwargs.get('constant_score_query'):
+			filtered_type = 'constant_score'
+			
+			if kwargs.get('constant_score_filter'):
+				set_filter = kwargs.get('constant_score_filter')
+			elif kwargs.get('constant_score_query'):
+				set_query = kwargs.get('constant_score_query')
+
+			# have to automatically change the system to a constant score from filtered
+			if 'filtered' in self._special_body.get('query'):
+				filters = copy.deepcopy(self._special_body.get('query').get('filtered'))
+				del self._special_body['query']['filtered']
+				self._special_body['query']['constant_score'] = filters
+			elif 'constant_score' not in self._special_body.get('query'):
+				self._special_body['query']['constant_score'] = {}
+
+		elif 'constant_score' in self._special_body.get('query'):
+			filtered_type = 'constant_score'
+
+	
+		if set_filter:
+			if filtered_type not in self._special_body.get('query'):
 				current_q = None
 				if self._special_body.get('query'):
 					current_q = copy.deepcopy(self._special_body.get('query'))
-					self._special_body = {'query': {'filtered': {} } }
-				self._special_body['query']['filtered'] = { 'filter':{}  }
+					self._special_body = {'query': {filtered_type: {} } }
+				self._special_body['query'][filtered_type] = { 'filter':{}  }
 
 				if current_q:
-					self._special_body['query']['filtered']['query'] = current_q
+					self._special_body['query'][filtered_type]['query'] = current_q
 
 			# do we have any top level and/or/not filters already specified?
-			_filter = self._special_body.get('query').get('filtered').get('filter')
+			_filter = self._special_body.get('query').get(filtered_type).get('filter')
 			try:
 				has_conditions = next( cond for cond in ['and','or','not'] if cond in _filter )
 			except StopIteration:
@@ -330,18 +362,18 @@ class VWCollection(object):
 					if _bool_condition in _filter:
 						if _filter[_bool_condition]:
 							if not isinstance(_filter.get(_bool_condition, list) ):
-								self._special_body['query']['filtered']['filter'][_bool_condition] = [_filter[_bool_condition]]
+								self._special_body['query'][filtered_type]['filter'][_bool_condition] = [_filter[_bool_condition]]
 
-							self._special_body['query']['filtered']['filter'][_bool_condition].append( kwargs.get('filter') )
-							_filter = self._special_body['query']['filtered']['filter']
+							self._special_body['query'][filtered_type]['filter'][_bool_condition].append( set_filter )
+							_filter = self._special_body['query'][filtered_type]['filter']
 
 					elif _filter:
-						self._special_body['query']['filtered']['filter'] = { _bool_condition: [_filter] }
-						_filter = self._special_body.get('query').get('filtered').get('filter')
-						_filter.append( kwargs.get('filter') )
+						self._special_body['query'][filtered_type]['filter'] = { _bool_condition: [_filter] }
+						_filter = self._special_body.get('query').get(filtered_type).get('filter')
+						_filter.append( set_filter )
 						
 					else:
-						self._special_body['query']['filtered']['filter'] = kwargs.get('filter')
+						self._special_body['query'][filtered_type]['filter'] = set_filter 
 
 					self._last_top_level_boolean = _bool_condition # for subsequent calls
 
@@ -377,21 +409,21 @@ class VWCollection(object):
 						if _filter.get( set_on_condition ).get('bool'):
 							if _filter.get(set_on_condition).get('bool').get(_bool_condition):
 								if isinstance(_filter.get(set_on_condition).get('bool').get(_bool_condition), list):
-									_filter.get(set_on_condition).get('bool').get(_bool_condition).append(kwargs.get('filter'))
+									_filter.get(set_on_condition).get('bool').get(_bool_condition).append(set_filter)
 								else:
 									current_filter = copy.deepcopy(_filter.get(set_on_condition).get('bool').get(_bool_condition))
-									self._special_body['query']['filtered']['filter']['bool'][_bool_condition] = [current_filter, kwargs.get('filter')]
-									_filter = self._special_body['query']['filtered']['filter']
+									self._special_body['query'][filtered_type]['filter']['bool'][_bool_condition] = [current_filter, set_filter]
+									_filter = self._special_body['query'][filtered_type]['filter']
 							else:
-								_filter.get(set_on_condition).get('bool')[_bool_condition] = kwargs.get('filter')
+								_filter.get(set_on_condition).get('bool')[_bool_condition] = set_filter 
 
 
 						else:
 							current_filter = copy.deepcopy(_filter.get(set_on_condition))
-							self._special_body['query']['filtered']['filter'][set_on_condition] = {'bool': { _bool_condition: current_filter } }
-							_filter = self._special_body['query']['filter']['filtered']
+							self._special_body['query'][filtered_type]['filter'][set_on_condition] = {'bool': { _bool_condition: current_filter } }
+							_filter = self._special_body['query'][filtered_type]['filter']
 
-							_filter[set_on_condition]['bool'][_bool_condition] = kwargs.get('filter')
+							_filter[set_on_condition]['bool'][_bool_condition] = set_filter 
 
 						if 'bool' in _filter[set_on_condition]:
 							if _minimum_should_match != 1:
@@ -409,20 +441,20 @@ class VWCollection(object):
 				if _filter.get('bool'):
 					if _filter.get('bool').get(_bool_condition):
 						if isinstance(_filter.get('bool').get(_bool_condition), list ):
-							_filter.get('bool').get(_bool_condition).append( kwargs.get('filter') )
+							_filter.get('bool').get(_bool_condition).append( set_filter )
 						else:
 							current_filter = copy.deepcopy(_filter.get('bool').get(_bool_condition))
-							self._special_body['query']['filter']['filtered']['bool'][_bool_condition] = [current_filter, kwargs.get('filter')]
+							self._special_body['query'][filtered_type]['filter']['bool'][_bool_condition] = [current_filter, set_filter]
 					else:
-						_filter['bool'][_bool_condition] = kwargs.get('filter')
+						_filter['bool'][_bool_condition] = set_filter
 
 				elif _filter:
 					current_filter = copy.deepcopy(_filter)
-					self._special_body['query']['filtered']['filter'] = {'bool': { _bool_condition: [current_filter, kwargs.get('filter')] } }
-					_filter = self._special_body['query']['filtered']['filter']
+					self._special_body['query'][filtered_type]['filter'] = {'bool': { _bool_condition: [current_filter, set_filter] } }
+					_filter = self._special_body['query'][filtered_type]['filter']
 				else:
-					self._special_body['query']['filtered']['filter'] = kwargs.get('filter')
-					_filter = self._special_body['query']['filtered']['filter']
+					self._special_body['query'][filtered_type]['filter'] = set_filter 
+					_filter = self._special_body['query'][filtered_type]['filter']
 
 
 				if 'bool' in _filter:
@@ -433,10 +465,9 @@ class VWCollection(object):
 						_filter['bool']['boost'] = kwargs.get('boost')
 
 
-		elif kwargs.get('query'):
-			if 'filtered' in self._special_body.get('query'):
-				query = self._special_body.get('query').get('filtered')
-
+		elif set_query:
+			if filtered_type in self._special_body.get('query'):
+				query = self._special_body.get('query').get(filtered_type)
 			else:
 				query = self._special_body
 
@@ -450,7 +481,7 @@ class VWCollection(object):
 
 							query['query']['bool'][_bool_conditon] = [current_q, kwargs.get('query')]
 					else:
-						query['query']['bool'][_bool_condition] = kwargs.get('filter')
+						query['query']['bool'][_bool_condition] = set_filter
 
 				else:
 					current_q = copy.deepcopy(query['query'])
@@ -465,11 +496,10 @@ class VWCollection(object):
 
 				if kwargs.get('boost'):
 					query['query']['bool']['boost'] = kwargs.get('boost')
-
 		
 
 	def _special_body_is_filtered(self):
-		return (self._special_body and self._special_body.get('query').get('filtered'))
+		return (self._special_body and self._special_body.get('query') and ('filtered' in self._special_body.get('query') or 'constant_score' in self._special_body.get('query') ) )
 
 	def range(self, field, **kwargs):
 		q = {'range': { field: kwargs } }
@@ -484,7 +514,15 @@ class VWCollection(object):
 	def search_geo(self, field, distance, lat, lon):
 		self._build_body( filter={"geo_distance": { "distance": distance, field: [lon,lat] } }, condition='explicit_and' )
 		return self
+
+	def missing( self, field):
+		self._build_body( filter={"missing": { "field": field } } )
+		return self
 	
+	def exists( self, field):
+		self._build_body( filter={"exists": { "field": field } } )
+		return self
+
 	def delete(self, **kwargs):
 		params = self._create_search_params()
 		params.update(kwargs)
