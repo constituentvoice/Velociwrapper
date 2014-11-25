@@ -119,7 +119,8 @@ class ESType(type):
 				'fielddata': {},
 				'copy_to': '',
 				'similarity': 'default',
-				'fields': {}
+				'fields': {},
+				'meta_': {}
 			},
 			'String': {
 				'analyzed': True,
@@ -134,13 +135,32 @@ class ESType(type):
 				'boost_': '1.0'
 			},
 			'Number': {
-				'type': 'integer',
+				'type_': 'float',
+				'index_': 'no',
+				'precision_step': 16,
+				'ignore_malformed': False,
+				'coerce': True
+			},
+			'Integer': {
+				'type_': 'float',
+				'index_': 'no',
+				'precision_step': 16,
+				'ignore_malformed': False,
+				'coerce': True
+			},
+			'Long': {
+				'type_': 'long',
 				'index_': 'no',
 				'precision_step': 16,
 				'ignore_malformed': False,
 				'coerce': True
 			},
 			'Date': {
+				'format': 'dateOptionalTime',
+				'precision_step': 16,
+				'ignore_malformed': False
+			},
+			'DateTime': {
 				'format': 'dateOptionalTime',
 				'precision_step': 16,
 				'ignore_malformed': False
@@ -170,16 +190,22 @@ class ESType(type):
 				'tree_levels': '',
 				'distance_error_pct': 0.5
 			}
+			# attachment not specified because it has no other args
 		}
 
 		def get_prop_dict(self):
 			prop_dict = { "type": self.__class__.__name__.lower() }
-			name = self.__class__.__name__
+
+			valid = []
+			for obj in self.__class__.mro():
+				if obj.__name__ in self.__es_properties__:
+					valid.extend( list( self.__es_properties__.get(obj.__name__) ) )
+
+			valid.extend( list( self.__es_properties__.get('Any') ) )
+
 			for k in dir(self):
-				if k in self.__es_properties__.get(name,[]) or k in self.__es_properties__.get('Any',[]):
+				if k in valid:
 					v = getattr(self,k)
-					#if not v:
-					#	v = self.__es_properties__.get(k)
 
 					keyname = k
 					if k[ len(k) - 1 ] == "_":
@@ -223,8 +249,16 @@ class ESType(type):
 		base_kwargs = {}
 		es_kwargs = {}
 		_name_ = cls.__name__
+		
+		valid = []
+		for obj in cls.mro():
+			if obj.__name__ in cls.__es_properties__:
+				valid.extend( list( cls.__es_properties__.get(obj.__name__) ) )
+
+		valid.extend( list( cls.__es_properties__.get('Any') ) )
+
 		for k,v in kwargs.iteritems():
-			if k in cls.__es_properties__.get(_name_, []) or k in cls.__es_properties__.get('Any',[]):
+			if k in valid:
 				es_kwargs[k] = v
 			else:
 				base_kwargs[k] = v

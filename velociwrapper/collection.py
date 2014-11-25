@@ -79,6 +79,11 @@ class VWCollection(object):
 		return self
 
 	def filter_by( self, condition = 'and',**kwargs ):
+		if kwargs.get('condition'):
+			condition=kwargs.get('condition')
+			del kwargs['condition']
+
+
 		for k,v in kwargs.iteritems():
 			if k == 'id' or k == 'ids':
 				id_filter = v
@@ -116,7 +121,7 @@ class VWCollection(object):
 
 		return self
 
-	def exact( self, field, value ):
+	def exact( self, field, value,**kwargs ):
 		try:
 			field_template = getattr( self.base_obj, field)
 
@@ -131,9 +136,9 @@ class VWCollection(object):
 			logger.warn( str(field) + ' is not in the base model.' )
 		
 		if isinstance(value, list):
-			self._build_body( filter={"terms": { field: value } } )
+			self._build_body( filter={"terms": { field: value } }, **kwargs )
 		else:
-			self._build_body( filter={"term": { field: value } } )
+			self._build_body( filter={"term": { field: value } }, **kwargs )
 
 		return self
 		
@@ -502,25 +507,52 @@ class VWCollection(object):
 		return (self._special_body and self._special_body.get('query') and ('filtered' in self._special_body.get('query') or 'constant_score' in self._special_body.get('query') ) )
 
 	def range(self, field, **kwargs):
+		
+		search_options = {}
+		for opt in ['condition','minimum_should_match','with_explicit']:
+			if opt in kwargs:
+				search_options[opt] = kwargs.get(opt)
+				del kwargs[opt]
+
 		q = {'range': { field: kwargs } }
 		if self._special_body_is_filtered():
 			d = {'filter': q }
 		else:
 			d = {'query': q }
 
+
+		if search_options:
+			d.update(search_options)
+
 		self._build_body(**d)
+
 		return self
 
-	def search_geo(self, field, distance, lat, lon):
-		self._build_body( filter={"geo_distance": { "distance": distance, field: [lon,lat] } }, condition='explicit_and' )
+	def search_geo(self, field, distance, lat, lon,**kwargs):
+		
+		condition = kwargs.get('condition', 'explicit_and')
+		if 'condition' in kwargs:
+			del kwargs['condition']
+
+
+		if condition == 'and':
+			condition = 'explicit_and'
+		elif condition == 'or':
+			condition = 'explicit_or'
+		elif condition == 'not':
+			condition = 'explicit_not'
+
+		self._build_body( filter={"geo_distance": { "distance": distance, field: [lon,lat] } }, condition='explicit_and', **kwargs )
 		return self
 
-	def missing( self, field):
-		self._build_body( filter={"missing": { "field": field } } )
+	def missing( self, field, **kwargs):
+		kwargs['filter'] = {"missing":{"field": field } }
+		self._build_body( **kwargs )
 		return self
 	
-	def exists( self, field):
-		self._build_body( filter={"exists": { "field": field } } )
+	def exists( self, field, **kwargs):
+		kwargs['filter'] = {"exists": { "field": field } }
+		self._build_body( **kwargs )
 		return self
 
 	def delete(self, **kwargs):
@@ -553,11 +585,11 @@ class VWCollection(object):
 	# commits items in bulk
 	def commit(self, callback=None):
 		bulk_docs = []
-
+		
 		if callback:
 			if not callable(callback):
 				raise TypeError('Argument 2 to commit() must be callable')
-
+		
 		for i in self._items:
 			if callback:
 				i = callback(i)
