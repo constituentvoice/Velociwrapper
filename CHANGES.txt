@@ -107,5 +107,4 @@
 	- range() now works with other searchs
 	- search() may not always work with other searches due to nature of
 	  QueryDSL
-	
-
+	- wrote some documentation in the README.rst
