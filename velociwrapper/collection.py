@@ -111,7 +111,7 @@ class VWCollection(object):
 
 
 					if filter_terms:
-						self._build_body(filter={"terms": {k, filter_terms}}, condition=condition )
+						self._build_body(filter={"terms": {k: filter_terms}}, condition=condition )
 				else:
 					#search_value = unicode(v)
 					if analyzed:

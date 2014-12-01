@@ -95,14 +95,22 @@ def is_analyzed(value):
 
 
 	if check_defaults:
-		if isinstance(value,str) or isinstance(value,unicode):
+		analyzed = False
+		if isinstance(value, object): # this likely should't happen
 			analyzed = True
 		else:
-			analyzed = False
-	
+			checklist = []
+			if isinstance(value, list):
+				checklist = value
+			else:
+				checklist = [value]
+
+			for item in checklist:
+				if isinstance(value, str) or isinstance(value,unicode):
+					analyzed = True
+					break
+
 	return analyzed
-
-
 
 class ESType(type):
 	def __new__(cls,clsname,bases,dct):
