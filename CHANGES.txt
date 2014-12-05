@@ -108,3 +108,8 @@
 	- search() may not always work with other searches due to nature of
 	  QueryDSL
 	- wrote some documentation in the README.rst
+
+1.0.1
+	- fixed es_types.is_analyzed returning False on lists and objects
+	- fixed syntax error in collections, prevented filter_by kwargs from
+	  accepting list values
