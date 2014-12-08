@@ -113,3 +113,10 @@
 	- fixed es_types.is_analyzed returning False on lists and objects
 	- fixed syntax error in collections, prevented filter_by kwargs from
 	  accepting list values
+
+1.0.2
+	- fixed date parsing when converting to ESType
+	- changed Date() and DateTime() to accept a date or datetime (respectivly)
+	  on __init__()
+	- fixed incorrect version number
+	- changed setup.py to use the version from the module

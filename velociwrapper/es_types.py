@@ -1,5 +1,4 @@
 from datetime import date,datetime
-from dateutil import parser
 import types
 from .config import logger
 import re
@@ -18,14 +17,25 @@ def create_es_type(value):
 	if type(value) == str or type(value) == unicode:
 		# strings could be a lot of things
 		# try to see if it might be a date
-		try:
-			value = parser.parse(value)
+			
+		# dateutil isn't good at determining if we have a date (ok at parsing if we know there's a date). To that end we'll only accept a couple of valid formats
+		test_date = value.strip()
+		test_date = re.sub("(?:Z|\s*[\+\-]\d\d:?\d\d)$", '', test_date)
 
-			if value:
-				return DateTime(value.year, value.month, value.day, value.hour, value.minute, value.second, value.microsecond, value.tzinfo)
-		except:
-			# not a date, just pass
-			pass
+		try:
+			test_date = datetime.strptime( test_date, '%Y-%m-%d %H:%M:%S' )
+			return DateTime( test_date )
+
+		except ValueError:
+			try:
+				test_date = datetime.strptime( test_date, '%Y-%m-%dT%H:%M:%S')
+				return DateTime(test_date)
+			except ValueError:
+				try:
+					test_date = datetime.strptime(test_date,'%Y-%m-%d')
+					return Date(test_date.date())
+				except ValueError:
+					pass
 
 		# see if it might be an ip address
 		try:
@@ -341,10 +351,30 @@ class DateTime(datetime):
 	# TODO allow format changes
 	# for now just does default
 
+	def __init__(self,*args):
+		try:
+			if isinstance(args[0], datetime):
+				d = args[0]
+				args = [d.year, d.month, d.day, d.hour, d.minute, d.second, d.microsecond, d.tzinfo]
+		except:
+			pass
+
+		super(DateTime, self).__init__(*args)
+
 class Date(date):
 	__metaclass__ = ESType
 	precision_step = 16
 	ignore_malformed = False
+
+	def __init__(self, *args):
+		try:
+			if isinstance(args[0], date):
+				d = args[0]
+				args = [d.year, d.month, d.day]
+		except:
+			pass
+
+		super(Date, self).__init__(*args)
 
 class Boolean(int):
 	# can't extend bool so ... whatever
