@@ -120,3 +120,8 @@
 	  on __init__()
 	- fixed incorrect version number
 	- changed setup.py to use the version from the module
+
+1.0.3
+	- fixed datetimes being converted to date
+	- fixed microseconds being added to datetimes sent to the server (and
+	  throwing exceptions)
