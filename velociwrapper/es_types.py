@@ -74,10 +74,10 @@ def create_es_type(value):
 		return Float(value)
 
 	if isinstance(value,date):
-		return Date(value.year, value.month, value.day )
+		return Date(value)
 
 	if isinstance(value,datetime):
-		return DateTime(value.year, value.month, value.day, value.hour, value.minute, value.second, value.microsecond, value.tzinfo)
+		return DateTime(value)
 
 	# if here, just return the value as is
 	return value
@@ -351,22 +351,24 @@ class DateTime(datetime):
 	# TODO allow format changes
 	# for now just does default
 
-	def __init__(self,*args):
+	def __init__(self,*args,**kwargs):
 		try:
 			if isinstance(args[0], datetime):
 				d = args[0]
-				args = [d.year, d.month, d.day, d.hour, d.minute, d.second, d.microsecond, d.tzinfo]
+				args = [d.year, d.month, d.day, d.hour, d.minute, d.second]
+				if d.tzinfo:
+					kwargs['tzinfo'] = d.tzinfo
 		except:
 			pass
 
-		super(DateTime, self).__init__(*args)
+		super(DateTime, self).__init__(*args,**kwargs)
 
 class Date(date):
 	__metaclass__ = ESType
 	precision_step = 16
 	ignore_malformed = False
 
-	def __init__(self, *args):
+	def __init__(self, *args,**kwargs):
 		try:
 			if isinstance(args[0], date):
 				d = args[0]
@@ -374,7 +376,7 @@ class Date(date):
 		except:
 			pass
 
-		super(Date, self).__init__(*args)
+		super(Date, self).__init__(*args,**kwargs)
 
 class Boolean(int):
 	# can't extend bool so ... whatever
