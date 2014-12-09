@@ -287,7 +287,11 @@ class ESType(type):
 		if len(args) == 1:
 			a = args[0]
 			if cls == DateTime and isinstance(a, datetime):
-				args = [a.year, a.month, a.day, a.hour, a.minute, a.second,a.microsecond, a.tzinfo]
+				args = [a.year, a.month, a.day, a.hour, a.minute, a.second]
+
+				if a.tzinfo:
+					base_kwargs['tzinfo'] = a.tzinfo
+
 			elif cls == Date and isinstance(a,date):
 				args = [a.year,a.month,a.day]
 	
@@ -351,32 +355,10 @@ class DateTime(datetime):
 	# TODO allow format changes
 	# for now just does default
 
-	def __init__(self,*args,**kwargs):
-		try:
-			if isinstance(args[0], datetime):
-				d = args[0]
-				args = [d.year, d.month, d.day, d.hour, d.minute, d.second]
-				if d.tzinfo:
-					kwargs['tzinfo'] = d.tzinfo
-		except:
-			pass
-
-		super(DateTime, self).__init__(*args,**kwargs)
-
 class Date(date):
 	__metaclass__ = ESType
 	precision_step = 16
 	ignore_malformed = False
-
-	def __init__(self, *args,**kwargs):
-		try:
-			if isinstance(args[0], date):
-				d = args[0]
-				args = [d.year, d.month, d.day]
-		except:
-			pass
-
-		super(Date, self).__init__(*args,**kwargs)
 
 class Boolean(int):
 	# can't extend bool so ... whatever
