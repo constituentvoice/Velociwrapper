@@ -73,11 +73,11 @@ def create_es_type(value):
 	if type(value) == float:
 		return Float(value)
 
-	if isinstance(value,date):
-		return Date(value)
-
 	if isinstance(value,datetime):
 		return DateTime(value)
+
+	if isinstance(value,date):
+		return Date(value)
 
 	# if here, just return the value as is
 	return value
