@@ -31,11 +31,16 @@ def create_es_type(value):
 				test_date = datetime.strptime( test_date, '%Y-%m-%dT%H:%M:%S')
 				return DateTime(test_date)
 			except ValueError:
+				
 				try:
-					test_date = datetime.strptime(test_date,'%Y-%m-%d')
-					return Date(test_date.date())
+					test_date = datetime.strptime( test_date, '%Y-%m-%dT%H:%M:%S.%f')
+					return DateTime(test_date)
 				except ValueError:
-					pass
+					try:
+						test_date = datetime.strptime(test_date,'%Y-%m-%d')
+						return Date(test_date.date())
+					except ValueError:
+						pass
 
 		# see if it might be an ip address
 		try:

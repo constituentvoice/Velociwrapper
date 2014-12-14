@@ -50,6 +50,9 @@ class VWBase(object):
 				# check if we were called with a variable. If so set
 				if kwargs.get(k):
 					setattr(self,k,kwargs.get(k))
+				else:
+					# if not the variable should be set to default on this instance
+					setattr(self,k,v)
 
 
 		if 'id' not in kwargs:
