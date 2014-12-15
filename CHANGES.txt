@@ -125,3 +125,7 @@
 	- fixed datetimes being converted to date
 	- fixed microseconds being added to datetimes sent to the server (and
 	  throwing exceptions)
+
+1.0.4
+	- fixed a bug that prevented defaults from being set when objects are
+	  created
