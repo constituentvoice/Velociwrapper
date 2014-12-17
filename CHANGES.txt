@@ -129,3 +129,6 @@
 1.0.4
 	- fixed a bug that prevented defaults from being set when objects are
 	  created
+
+1.0.5
+	- fixed so VWBase objects can be pickled

@@ -23,7 +23,10 @@ class VWBase(object):
 	id = ''
 	
 	def __init__(self,**kwargs):
-		# connect using defaults or override with kwargs
+
+		# pickling off by default. Set by __getstate__ and __setstate__ when
+		# the object is pickled/unpickled. Allows all values to be set
+		self._pickling = False
 
 		# relationships should not be executed when called from init (EVAR)
 		self._no_ex = True
@@ -36,6 +39,8 @@ class VWBase(object):
 
 		self._needs_update = False
 		self._watch = True
+		
+		# connect using defaults or override with kwargs
 		self._es = elasticsearch.Elasticsearch( config.dsn )
 		self._deleted = False
 
@@ -61,6 +66,25 @@ class VWBase(object):
 		# make sure we're ready for changes
 		self._set_by_query = False
 		self._no_ex = False
+	
+	# customizations for pickling
+	def __getstate__(self):
+		# mark as pickling
+		self._pickling = True
+
+		# delete the connection object. New connection object gets set when recreated
+		del self._es
+
+		# don't store the _pickling flag. It will get reset when the object is recreated
+		del self._pickling
+
+		return super(VWBase,self).__getstate__()
+
+	def __setstate__(self,state):
+		self._pickling = True
+		super(VWBase,self).__setstate__(state)
+		self._pickling = False
+
 	
 	def __getattribute__(self,name):
 		# ok this is much funky
@@ -147,7 +171,7 @@ class VWBase(object):
 				
 				# special rules for names with underscores.
 				# seting the _ values will not trigger an update. 
-				if name not in dir(self) or name in ['_set_by_query','_deleted','_watch','_new','_no_ex']:
+				if name not in dir(self) or name in ['_set_by_query','_deleted','_watch','_new','_no_ex','_pickling'] or self._pickling:
 					object.__setattr__(self,name,value)  # don't copy this stuff. Set it as is
 
 			else:
