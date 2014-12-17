@@ -78,14 +78,20 @@ class VWBase(object):
 		# don't store the _pickling flag. It will get reset when the object is recreated
 		del self._pickling
 
-		return super(VWBase,self).__getstate__()
+		return self.__dict__
+
 
 	def __setstate__(self,state):
 		self._pickling = True
-		super(VWBase,self).__setstate__(state)
+
+		for k,v in state.iteritems():
+			setattr(self,k,v)
+
+		# recreate the _es connection (doesn't reset for some reason)
+		self._es = elasticsearch.Elasticsearch(config.dsn)
+	
 		self._pickling = False
 
-	
 	def __getattribute__(self,name):
 		# ok this is much funky
 		
