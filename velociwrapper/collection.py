@@ -9,6 +9,7 @@ from . import config
 from .config import logger
 #from .config import es,dsn,default_index,bulk_chunk_size,results_per_page, logger
 from .es_types import *
+from .base import VWBase
 
 # Raised when no results are found for one()
 class NoResultsFound(Exception):
