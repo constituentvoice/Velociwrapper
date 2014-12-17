@@ -132,3 +132,6 @@
 
 1.0.5
 	- fixed so VWBase objects can be pickled
+
+1.0.6
+	- fixed collections references VWBase before it was imported
