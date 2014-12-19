@@ -184,6 +184,7 @@ class ESType(type):
 				'ignore_malformed': False
 			},
 			'DateTime': {
+				'type_': 'date', # set explicitly because ES only has type as "date"
 				'format': 'dateOptionalTime',
 				'precision_step': 16,
 				'ignore_malformed': False
@@ -350,6 +351,7 @@ class TokenCount(Number):
 
 class DateTime(datetime):
 	__metaclass__ = ESType
+	type_ = 'date'
 	precision_step = 16
 	ignore_malformed = False
 
