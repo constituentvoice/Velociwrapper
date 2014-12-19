@@ -135,3 +135,7 @@
 
 1.0.6
 	- fixed collections references VWBase before it was imported
+
+1.0.7
+	- fixed datetime sending "datetime" as type to Elasticsearch (should send
+	  date)
