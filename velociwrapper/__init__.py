@@ -3,4 +3,4 @@ from .base import VWBase,ObjectDeletedError
 from .relationship import relationship
 
 # make sure this gets updated!
-__version__ = '1.0.6'
+__version__ = '1.0.7'
