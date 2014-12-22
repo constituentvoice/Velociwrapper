@@ -216,6 +216,13 @@ class ESType(type):
 			}
 			# attachment not specified because it has no other args
 		}
+		
+		dct['Array'] = {}
+		for k,v in dct:
+			if k == 'Array':
+				continue
+
+			dct['Array'].update(v)
 
 		def get_prop_dict(self):
 			prop_dict = { "type": self.__class__.__name__.lower() }
@@ -307,6 +314,11 @@ class ESType(type):
 			setattr(inst, k, v ) # testing
 
 		return inst
+
+# lists
+class Array(list):
+	__metaclass__ = ESType
+	type_ = 'string' # default
 
 # converts strings to unicode
 class String(unicode):
