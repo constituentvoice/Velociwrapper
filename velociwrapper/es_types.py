@@ -218,7 +218,7 @@ class ESType(type):
 		}
 		
 		dct['Array'] = {}
-		for k,v in dct:
+		for k,v in dct.iteritems():
 			if k == 'Array':
 				continue
 
