@@ -217,12 +217,12 @@ class ESType(type):
 			# attachment not specified because it has no other args
 		}
 		
-		dct['Array'] = {}
-		for k,v in dct.iteritems():
+		dct['__es_properties__']['Array'] = {}
+		for k,v in dct['__es_properties__'].iteritems():
 			if k == 'Array':
 				continue
-
-			dct['Array'].update(v)
+			
+			dct['__es_properties__']['Array'].update(v)
 
 		def get_prop_dict(self):
 			prop_dict = { "type": self.__class__.__name__.lower() }
