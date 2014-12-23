@@ -143,3 +143,11 @@
 1.0.8
 	- adds Array() type to ESTypes. Allows to specify an array of various
 	  ESTypes
+
+1.0.9
+	- fixes pickling VWBase objects causing existing instances to lose
+	  connection to elasticsearch (because the _es attribute is a static
+	  attribute)
+	- fixes mapper.reindex() to ignore subclasses that have no __type__
+	  attribute. Such subclasses are treated as helpers that actual models are
+	  derived from
