@@ -54,8 +54,14 @@ class Mapper(object):
 			if idx not in indexes:
 				indexes[idx] = {"mappings": {} }
 
-
-			sc_body = { sc.__type__: { "properties": {} } }
+			try:
+				# create the basic body
+				sc_body = { sc.__type__: { "properties": {} } }
+			except AttributeError:
+				# fails when no __type__ is found. Likely a subclass
+				# to add other features. We will skip mapping
+				continue
+				
 
 			for k,v in sc.__dict__.iteritems():
 				try:
