@@ -71,14 +71,18 @@ class VWBase(object):
 	def __getstate__(self):
 		# mark as pickling
 		self._pickling = True
-
+		
+		# copy the __dict__. Need copy so we don't
+		# break things when flags are removed
+		retval = copy.deepcopy(self.__dict__)
+		
 		# delete the connection object. New connection object gets set when recreated
-		del self._es
-
+		del retval['_es']
+		
 		# don't store the _pickling flag. It will get reset when the object is recreated
-		del self._pickling
+		del retval['_pickling']
 
-		return self.__dict__
+		return retval
 
 
 	def __setstate__(self,state):
