@@ -211,9 +211,13 @@ The following types use the same arguments (except for type which is specified a
 
 Keyword args:
 
-- format
-- precision_step
-- ignore_malformed
+- ``format``
+- ``precision_step``
+- ``ignore_malformed``
+
+**Array** - new in 1.0.8
+
+Special type that specifies a list of items that are a single type. Accepts any keyword argument above. ``type_`` keyword specifies the type to be used. Default is string
 
 **Binary** *()*
 

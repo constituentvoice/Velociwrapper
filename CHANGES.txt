@@ -139,3 +139,7 @@
 1.0.7
 	- fixed datetime sending "datetime" as type to Elasticsearch (should send
 	  date)
+
+1.0.8
+	- adds Array() type to ESTypes. Allows to specify an array of various
+	  ESTypes
