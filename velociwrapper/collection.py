@@ -247,6 +247,7 @@ class VWCollection(object):
 			else:
 				raise TypeError('"sort" argument must be a list')
 		
+		logger.debug( json.dumps(params) )
 		results = self._es.search( **params )
 		rows = results.get('hits').get('hits')
 
