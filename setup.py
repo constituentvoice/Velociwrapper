@@ -3,7 +3,7 @@ from distutils.sysconfig import get_python_lib
 import os
 import sys
 sys.path.append('.')
-from velociwrapper import __version__
+from velociwrapper.version import __version__
 
 setup(
 	name='Velociwrapper',
