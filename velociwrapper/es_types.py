@@ -197,6 +197,7 @@ class ESType(type):
 				'precision_step': 16
 			},
 			'GeoPoint': {
+				'type_': 'geo_point',
 				'lat_lon': False,
 				'geohash': False,
 				'geohash_precision': 12,
@@ -225,7 +226,8 @@ class ESType(type):
 			dct['__es_properties__']['Array'].update(v)
 
 		def get_prop_dict(self):
-			prop_dict = { "type": self.__class__.__name__.lower() }
+			es_type = self.__class__.__name__.lower()
+			prop_dict = { "type": es_type }
 
 			valid = []
 			for obj in self.__class__.mro():
@@ -393,6 +395,7 @@ class IP(String):
 
 class GeoPoint(object):
 	__metaclass__ = ESType
+	type_ = 'geo_point'
 	lat_lon = False
 	geohash = False
 	geohash_precision = None # use default
