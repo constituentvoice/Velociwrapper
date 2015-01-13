@@ -11,7 +11,28 @@ class Mapper(object):
 	def __init__(self):
 		self._es = Elasticsearch(config.dsn)
 		self._esc = client.IndicesClient(self._es)
-	
+
+	# Retrieves the mapping as defined by the server
+	def get_server_mapping(self,**kwargs):
+		indexes = []
+		if isinstance(kwargs.get('index'),list):
+			indexes = kwargs.get('index')
+		elif kwargs.get('index'):
+			indexes.append(kwargs.get('index'))
+
+		# if the model arguent is a VWBase object
+		if isinstance(kwargs.get('index'), VWBase):
+			try:
+				indexes.append(kwargs.get('index').__index__)
+			except AttributeError:
+				pass
+
+		if not indexes:
+			indexes.append(config.default_index)
+
+		return self._esc.get_mapping(index=indexes)
+
+	# Retrieves what the map should be according to the defined models
 	def get_index_map(self, **kwargs ):
 		# recursively find all the subclasses of base
 
