@@ -605,8 +605,12 @@ The Mapper class has utilities for managing the Elasticsearch index.
 
 **get_index_map** *(\*\*kwargs)*
 
-Searches for currently loaded VWBase models and returns the their indexes along with their mappings. The only keyword argument is ``index``, passed to specify 
+Searches for currently loaded VWBase models and returns the their indexes as defined by code, along with their mappings. The only keyword argument is ``index``, passed to specify 
 a particular index or group of indexes (must be a ``str`` or ``list``).
+
+**get_server_map** *(\*\*kwargs)*
+
+*New in version 1.0.10*. Like *get_index_map()*, but returns the mapping as saved on the server.
 
 **create_indicies** *(\*\*kwargs)*
 
