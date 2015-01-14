@@ -151,3 +151,11 @@
 	- fixes mapper.reindex() to ignore subclasses that have no __type__
 	  attribute. Such subclasses are treated as helpers that actual models are
 	  derived from
+
+1.0.10
+	- added get_server_mapping() to Mapper. Allows inspection of what the
+	  server actually has rather than what the code says.
+	- fixed GeoPoint ESType returning the wrong type to elasticsearch
+	- fixed setup.py failing due to missing imports when looking for version
+	  before dependencies are resolved.
+	- updated documentation
