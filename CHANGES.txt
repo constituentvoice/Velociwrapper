@@ -159,3 +159,6 @@
 	- fixed setup.py failing due to missing imports when looking for version
 	  before dependencies are resolved.
 	- updated documentation
+
+1.0.11
+	- added multi_match()

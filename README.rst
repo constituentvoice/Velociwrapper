@@ -505,6 +505,10 @@ Keyword arguments
 - ``minimum_should_match`` *int*: When executing a should (or) query, specify the number of options that should match to return the document. Default = 1
 - ``with_explicit`` *str*: "and","or","not". Only used if explicit conditions exist and there's a question of how an additional condtion should be added to the query. 
 
+**multi_match** *(fields=list,query=str,\*\*kwargs)*
+
+Chainable. Search the list of fields for the value of query. Accepts standard kwargs arguments.
+
 **get** *(id=value)*
 
 Returns the single record specified by ``id`` or ``None`` if it does not exist.

@@ -121,6 +121,10 @@ class VWCollection(object):
 						self._build_body(filter={"term": { unicode(k): v }}, condition=condition)
 
 		return self
+	
+	def multi_match(self, fields, query, **kwargs):
+		self._build_body(query={"multi_match": { "fields": fields, "query": query } }, condition=kwargs.get('condition', None))
+		return self
 
 	def exact( self, field, value,**kwargs ):
 		try:
