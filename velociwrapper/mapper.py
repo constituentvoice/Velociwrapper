@@ -135,7 +135,7 @@ class Mapper(object):
 			# as a copy of the old one. The idea being that the mapping 
 			# was changed
 			index_mapping = self.get_index_map(index=idx) # using "idx" intentionally because models will be defined as alias
-			self._esc.create( index=newindex, body=index_mapping)
+			self._esc.create( index=newindex, body=index_mapping.get(idx)) # have to use the index name as the key to the dict even though only one is returned.  .create() only takes the mapping
 			
 		# map our documents
 		helpers.reindex(self._es, index, newindex, **kwargs)

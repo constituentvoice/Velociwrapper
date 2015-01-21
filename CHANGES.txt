@@ -162,3 +162,7 @@
 
 1.0.11
 	- added multi_match()
+
+1.0.12
+	- fixed body not being propertly specified on reindex(). Caused explicit
+	  mapping to be deleted
