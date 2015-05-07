@@ -1,4 +1,4 @@
-from elasticsearch import Elasticsearch, NotFoundError,helpers
+from elasticsearch import Elasticsearch, NotFoundError,helpers, client
 from datetime import date,datetime
 from uuid import uuid4
 import json
@@ -25,7 +25,7 @@ class VWCollection(object):
 		self.bulk_chunk_size = kwargs.get('bulk_chunk_size', config.bulk_chunk_size)
 
 		self._sort = []
-		
+
 		self.results_per_page = kwargs.get('results_per_page', config.results_per_page)
 
 
@@ -38,6 +38,7 @@ class VWCollection(object):
 				raise AttributeError('Base object must contain a model or pass base_obj')
 
 		self._es = Elasticsearch(config.dsn)
+		self._esc = client.IndicesClient(self._es)
 
 		if '__index__' in dir(self.base_obj):
 			idx = self.base_obj.__index__
@@ -121,7 +122,7 @@ class VWCollection(object):
 						self._build_body(filter={"term": { unicode(k): v }}, condition=condition)
 
 		return self
-	
+
 	def multi_match(self, fields, query, **kwargs):
 		self._build_body(query={"multi_match": { "fields": fields, "query": query } }, condition=kwargs.get('condition', None))
 		return self
@@ -139,14 +140,14 @@ class VWCollection(object):
 
 		except AttributeError:
 			logger.warn( str(field) + ' is not in the base model.' )
-		
+
 		if isinstance(value, list):
 			self._build_body( filter={"terms": { field: value } }, **kwargs )
 		else:
 			self._build_body( filter={"term": { field: value } }, **kwargs )
 
 		return self
-		
+
 
 	def or_(self,*args):
 		return ' OR '.join(args)
@@ -160,8 +161,11 @@ class VWCollection(object):
 		except:
 			return None
 
+	def refresh(self, **kwargs):
+		self._esc.refresh(index=self.idx, **kwargs)
+
 	def get_in(self, ids):
-		
+
 		if len(ids) > 0: # check for ids. empty list returns an empty list (instead of exception)
 			res = self._es.mget(index=self.idx,doc_type=self.type,body={'ids':ids})
 			if res and res.get('docs'):
@@ -203,12 +207,12 @@ class VWCollection(object):
 
 		else:
 			q['body'] = {'query':{'match_all':{} } }
-		
+
 
 		# this is the newer search by QDSL
 		if self._special_body:
 			q['body'] = self._special_body
-		
+
 		logger.debug(json.dumps(q))
 		return q
 
@@ -235,7 +239,7 @@ class VWCollection(object):
 		if kwargs.get('start') != None:
 			kwargs['from_'] = kwargs.get('start')
 			del kwargs['start']
-		
+
 		logger.debug( json.dumps( self._sort )  )
 
 		params.update(kwargs)
@@ -244,13 +248,13 @@ class VWCollection(object):
 				params['sort'].extend(self._sort)
 			else:
 				params['sort'] = self._sort
-		
+
 		if params.get('sort'):
 			if isinstance(params['sort'], list):
 				params['sort'] = ','.join(params.get('sort'))
 			else:
 				raise TypeError('"sort" argument must be a list')
-		
+
 		logger.debug( json.dumps(params) )
 		results = self._es.search( **params )
 		rows = results.get('hits').get('hits')
@@ -263,10 +267,10 @@ class VWCollection(object):
 			return results[0]
 		except IndexError:
 			raise NoResultsFound('No result found for one()')
-	
+
 	# builds query bodies
 	def _build_body( self, **kwargs ):
-		
+
 		exclusive = ['filter','query','constant_score_filter','constant_score_query']
 
 		excount = 0
@@ -331,7 +335,7 @@ class VWCollection(object):
 		set_filter = kwargs.get('filter')
 		if kwargs.get('constant_score_filter') or kwargs.get('constant_score_query'):
 			filtered_type = 'constant_score'
-			
+
 			if kwargs.get('constant_score_filter'):
 				set_filter = kwargs.get('constant_score_filter')
 			elif kwargs.get('constant_score_query'):
@@ -348,7 +352,7 @@ class VWCollection(object):
 		elif 'constant_score' in self._special_body.get('query'):
 			filtered_type = 'constant_score'
 
-	
+
 		if set_filter:
 			if filtered_type not in self._special_body.get('query'):
 				current_q = None
@@ -366,7 +370,7 @@ class VWCollection(object):
 				has_conditions = next( cond for cond in ['and','or','not'] if cond in _filter )
 			except StopIteration:
 				has_conditions = None
-			
+
 			if has_conditions:
 
 				if _bool_condition in ['and','or','not']:
@@ -382,25 +386,25 @@ class VWCollection(object):
 						self._special_body['query'][filtered_type]['filter'] = { _bool_condition: [_filter] }
 						_filter = self._special_body.get('query').get(filtered_type).get('filter')
 						_filter.append( set_filter )
-						
+
 					else:
-						self._special_body['query'][filtered_type]['filter'] = set_filter 
+						self._special_body['query'][filtered_type]['filter'] = set_filter
 
 					self._last_top_level_boolean = _bool_condition # for subsequent calls
 
 				else:
 					# we have to find the bool
-						
+
 					# if we have top level conditions then bool must appear inside one of them
 					# 1. Try to use the specified position with_explicit=value. If it doesn't exist then fall through (and warn)
 					# 2. Use the last precidence specified (if it was specified)
 					# 3. try in the order of AND, OR, NOT
 					# 4. If none have bools, add the bool to the first condition that exists (in the order of 'and','or','not') (using has_conditions whcih will be set to teh appropriate value)
-					
+
 					set_on_condition = False
 					if _with_explicit and _filter.get(_with_explicit):
 						set_on_condition = _with_explicit
-						
+
 						# set the top level bool to the explicit setting
 						self._last_top_level_boolean = _with_explicit
 
@@ -415,7 +419,7 @@ class VWCollection(object):
 					# if its still not set:
 					if not set_on_condition:
 						set_on_condition = has_conditions # has_conditions will be set to the first existing condition in order of ops
-				
+
 					if set_on_condition in _filter:
 						if _filter.get( set_on_condition ).get('bool'):
 							if _filter.get(set_on_condition).get('bool').get(_bool_condition):
@@ -426,7 +430,7 @@ class VWCollection(object):
 									self._special_body['query'][filtered_type]['filter']['bool'][_bool_condition] = [current_filter, set_filter]
 									_filter = self._special_body['query'][filtered_type]['filter']
 							else:
-								_filter.get(set_on_condition).get('bool')[_bool_condition] = set_filter 
+								_filter.get(set_on_condition).get('bool')[_bool_condition] = set_filter
 
 
 						else:
@@ -434,7 +438,7 @@ class VWCollection(object):
 							self._special_body['query'][filtered_type]['filter'][set_on_condition] = {'bool': { _bool_condition: current_filter } }
 							_filter = self._special_body['query'][filtered_type]['filter']
 
-							_filter[set_on_condition]['bool'][_bool_condition] = set_filter 
+							_filter[set_on_condition]['bool'][_bool_condition] = set_filter
 
 						if 'bool' in _filter[set_on_condition]:
 							if _minimum_should_match != 1:
@@ -464,7 +468,7 @@ class VWCollection(object):
 					self._special_body['query'][filtered_type]['filter'] = {'bool': { _bool_condition: [current_filter, set_filter] } }
 					_filter = self._special_body['query'][filtered_type]['filter']
 				else:
-					self._special_body['query'][filtered_type]['filter'] = set_filter 
+					self._special_body['query'][filtered_type]['filter'] = set_filter
 					_filter = self._special_body['query'][filtered_type]['filter']
 
 
@@ -500,20 +504,20 @@ class VWCollection(object):
 
 			else:
 				query['query'] = kwargs.get('query')
-	
+
 			if 'bool' in query.get('query'):
 				if _minimum_should_match != 1:
 					query['query']['bool']['minimum_should_match'] = _minimum_should_match
 
 				if kwargs.get('boost'):
 					query['query']['bool']['boost'] = kwargs.get('boost')
-		
+
 
 	def _special_body_is_filtered(self):
 		return (self._special_body and self._special_body.get('query') and ('filtered' in self._special_body.get('query') or 'constant_score' in self._special_body.get('query') ) )
 
 	def range(self, field, **kwargs):
-		
+
 		search_options = {}
 		for opt in ['condition','minimum_should_match','with_explicit']:
 			if opt in kwargs:
@@ -535,7 +539,7 @@ class VWCollection(object):
 		return self
 
 	def search_geo(self, field, distance, lat, lon,**kwargs):
-		
+
 		condition = kwargs.get('condition', 'explicit_and')
 		if 'condition' in kwargs:
 			del kwargs['condition']
@@ -555,7 +559,7 @@ class VWCollection(object):
 		kwargs['filter'] = {"missing":{"field": field } }
 		self._build_body( **kwargs )
 		return self
-	
+
 	def exists( self, field, **kwargs):
 		kwargs['filter'] = {"exists": { "field": field } }
 		self._build_body( **kwargs )
@@ -587,15 +591,15 @@ class VWCollection(object):
 			bulk_docs.append( {'_op_type': 'delete', '_type': this_type, '_index': this_idx, '_id': this_id } )
 
 		return helpers.bulk( self._es, bulk_docs, chunk_size=self.bulk_chunk_size)
-	
+
 	# commits items in bulk
 	def commit(self, callback=None):
 		bulk_docs = []
-		
+
 		if callback:
 			if not callable(callback):
 				raise TypeError('Argument 2 to commit() must be callable')
-		
+
 		for i in self._items:
 			if callback:
 				i = callback(i)
@@ -616,10 +620,10 @@ class VWCollection(object):
 			elif isinstance(i,dict):
 				this_dict = i
 				this_id = i.get('id')
-			
+
 			else:
 				raise TypeError( 'Elments passed to the collection must be type of "dict" or "VWBase"' )
-			
+
 			if not this_id:
 				this_id = str(uuid4())
 
