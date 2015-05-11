@@ -23,6 +23,8 @@ class VWBase(object):
 	id = ''
 	
 	def __init__(self,**kwargs):
+		# the internal document
+		self._document = {}
 
 		# pickling off by default. Set by __getstate__ and __setstate__ when
 		# the object is pickled/unpickled. Allows all values to be set
@@ -74,21 +76,22 @@ class VWBase(object):
 	
 		# copy the __dict__. Need copy so we don't
 		# break things when flags are removed
-		# can't copy the whole object ... breaks because of threads in the _es connection. We'll loop
-		retval = {}
-		for k,v in self.__dict__.iteritems():
-			if k != '_es' and k != '_pickling':
-				retval[k] = copy.deepcopy(v)
 		
+		retval = copy.deepcopy(self._document)
+		
+		#for k,v in self.__dict__.iteritems():
+		#	if k != '_es' and k != '_pickling':
+		#		retval[k] = copy.deepcopy(v)
+
 		self._pickling = False
 		return retval
-
 
 	def __setstate__(self,state):
 		self._pickling = True
 
-		for k,v in state.iteritems():
-			setattr(self,k,v)
+		#for k,v in state.iteritems():
+		#	setattr(self,k,v)
+		self._document = state.get('_document')
 
 		# recreate the _es connection (doesn't reset for some reason)
 		self._es = elasticsearch.Elasticsearch(config.dsn)
@@ -104,12 +107,29 @@ class VWBase(object):
 		except AttributeError:
 			pass
 	
-		v = super(VWBase,self).__getattribute__(name)
+		if name[0] == "_":
+			v = super(VWBase,self).__getattribute__(name)
+		else:
+			doc = super(VWBase,self).__getattribute__('_document')
+			v = doc.get(name)
 
 		# we want to keep the relationships if set_by_query in the collection so we only execute with direct access
 		# (we'll see, it might have an unintended side-effect)
 		if isinstance(v,relationship) and not no_ex:
 			return v.execute(self)
+
+		elif isinstance(v,str) or isinstance(v,unicode):
+			try:
+				dt_value = datetime.strptime('%Y-%m-%dT%H:%M:%S')
+				return dt_value
+			except ValueError:
+				try:
+					d_value = datetime.strptime('%Y-%m-%d')
+					return d_value.date()
+				except:
+					return v
+			except:
+				return v
 		else:
 			return v
 
@@ -124,6 +144,7 @@ class VWBase(object):
 			currvalue = None
 		
 		if isinstance(currvalue,relationship) and not isinstance(value, relationship):
+			# TODO ... this stuff is probably going to have to be rethought
 			currparams = currvalue.get_relational_params(self)
 			newparams = currvalue.get_reverse_params(self,value)
 			
@@ -185,7 +206,7 @@ class VWBase(object):
 
 			else:
 				currvalue = create_es_type(currvalue) # create it as an es_type
-				value = copy.deepcopy(value) # copy first before we manipulate
+				#value = copy.deepcopy(value) # copy first before we manipulate
 			
 				try:
 					if value._metaclass__ == ESType:
@@ -229,7 +250,7 @@ class VWBase(object):
 
 								else:
 									value = test_value
-
+							
 
 							if type_enforcement:
 								try:
@@ -246,7 +267,14 @@ class VWBase(object):
 						# if ES has an issue it will throw its own exception.
 						pass
 				
-				object.__setattr__(self,name,value)
+				#object.__setattr__(self,name,value)
+				# just set the field on the document
+				if isinstance(value,DateTime) or isinstance(value,datetime):
+					self._document[name] = value.strftime('%Y-%m-%dT%H:%M:%S')
+				elif isinstance(value,Date) or isinstance(value,date):
+					self._document[name] = value.strftime('%Y-%m-%d')
+				else:
+					self._document[name] = value
 
 				if self._watch:
 					object.__setattr__(self,'_needs_update',True)
@@ -261,15 +289,15 @@ class VWBase(object):
 			idx = self.__index__
 			doc_type = self.__type__
 
-			doc = {}
-			for k,v in self.__dict__.iteritems():
-				if k[0] == '_' or k == 'id':
-					continue
+			doc = self._document
+			#for k,v in self.__dict__.iteritems():
+			#	if k[0] == '_' or k == 'id':
+			#		continue
 
-				if isinstance(v,relationship): # cascade commits? # probably not
-					continue
+			#	if isinstance(v,relationship): # cascade commits? # probably not
+			#		continue
 
-				doc[k] = v
+			#	doc[k] = v
 
 			res = self._es.index(index=idx,doc_type=doc_type,id=self.id,body=doc)
 			self._watch = True
@@ -279,14 +307,15 @@ class VWBase(object):
 		if self.id:
 			try:
 				res = self._es.get(id=self.id,index=self.__index__)
-				for k,v in res.get('_source').iteritems():
-					if self.__class__.__dict__.get(k) and ( isinstance( self.__class__.__dict__.get(k), date ) or isinstance( self.__class__.__dict__.get(k), datetime ) ):
-						try:
-							v = parser.parse(v)
-						except:
-							pass
+				#for k,v in res.get('_source').iteritems():
+				#	if self.__class__.__dict__.get(k) and ( isinstance( self.__class__.__dict__.get(k), date ) or isinstance( self.__class__.__dict__.get(k), datetime ) ):
+				#		try:
+				#			v = parser.parse(v)
+				#		except:
+				#			pass
 
-					setattr(self,k,v)
+				#	setattr(self,k,v)
+				self._document = res.get('_source')
 
 				self._new = False
 
@@ -303,21 +332,23 @@ class VWBase(object):
 
 	# to dict is for overriding. _create_source_document() should never be overridden!
 	def to_dict(self):
-		return self._create_source_document(datetime_format='%Y-%m-%d %H:%M:%S')  # to_dict should use true ISO format without the T
+		# copy so we dont overwrite the original document
+		return copy.deepcopy(self._create_source_document(datetime_format='%Y-%m-%d %H:%M:%S') ) # to_dict should use true ISO format without the T
 
 	def _create_source_document(self, **kwargs):
-		output = {}
-		date_format = kwargs.get('date_format','%Y-%m-%d')
-		datetime_format = kwargs.get('datetime_format','%Y-%m-%dT%H:%M:%S')
-		for k,v in self.__dict__.iteritems():
-			if k[0] != '_':
-				if isinstance(v,datetime):
-					# output[k] = v.isoformat()
-					output[k] = v.strftime(datetime_format)
-				elif isinstance(v,date):
-					output[k] = v.strftime(date_format)
-				else:
-					output[k] = copy.deepcopy(v)
+		output = self._document
+
+		#date_format = kwargs.get('date_format','%Y-%m-%d')
+		#datetime_format = kwargs.get('datetime_format','%Y-%m-%dT%H:%M:%S')
+		#for k,v in self._document.iteritems():
+		#	if k[0] != '_':
+		#		if isinstance(v,datetime):
+		#			# output[k] = v.isoformat()
+		#			output[k] = v.strftime(datetime_format)
+		#		elif isinstance(v,date):
+		#			output[k] = v.strftime(date_format)
+		#		else:
+		#			output[k] = v
 
 		return output
 
