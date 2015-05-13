@@ -106,12 +106,12 @@ class VWBase(object):
 			no_ex = super(VWBase,self).__getattribute__('_no_ex')
 		except AttributeError:
 			pass
-	
-		if name[0] == "_":
-			v = super(VWBase,self).__getattribute__(name)
-		else:
-			doc = super(VWBase,self).__getattribute__('_document')
+		
+		doc = super(VWBase,self).__getattribute__('_document')
+		if name in doc:
 			v = doc.get(name)
+		else:
+			v = super(VWBase,self).__getattribute__(name)
 
 		# we want to keep the relationships if set_by_query in the collection so we only execute with direct access
 		# (we'll see, it might have an unintended side-effect)
@@ -120,11 +120,11 @@ class VWBase(object):
 
 		elif isinstance(v,str) or isinstance(v,unicode):
 			try:
-				dt_value = datetime.strptime('%Y-%m-%dT%H:%M:%S')
+				dt_value = datetime.strptime(v,'%Y-%m-%dT%H:%M:%S')
 				return dt_value
 			except ValueError:
 				try:
-					d_value = datetime.strptime('%Y-%m-%d')
+					d_value = datetime.strptime(v,'%Y-%m-%d')
 					return d_value.date()
 				except:
 					return v
