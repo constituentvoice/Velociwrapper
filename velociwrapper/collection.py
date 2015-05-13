@@ -5,7 +5,7 @@ import json
 import types
 import copy
 import logging
-from . import config
+from . import config, qdsl
 from .config import logger
 #from .config import es,dsn,default_index,bulk_chunk_size,results_per_page, logger
 from .es_types import *
@@ -226,6 +226,10 @@ class VWCollection(object):
 	def __len__(self):
 		return self.count()
 
+	def limit(self,count):
+		self.results_per_page = count
+		return self
+
 	def all(self,**kwargs):
 
 		params = self._create_search_params()
@@ -262,7 +266,8 @@ class VWCollection(object):
 		return self._create_obj_list( rows )
 
 	def one(self,**kwargs):
-		results = self.all(results_per_page=1)
+		kwargs['results_per_page'] = 1
+		results = self.all(**kwargs)
 		try:
 			return results[0]
 		except IndexError:
