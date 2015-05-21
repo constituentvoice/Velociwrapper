@@ -264,7 +264,7 @@ class VWCollection(object):
 		#rows = results.get('hits').get('hits')
 
 		#return self._create_obj_list( rows )
-		return VWCollectionGen( results )
+		return VWCollectionGen( self.base_obj,results )
 
 	def one(self,**kwargs):
 		kwargs['results_per_page'] = 1
