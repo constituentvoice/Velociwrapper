@@ -24,7 +24,7 @@ def multi_match( query, fields, **kwargs):
 	return output
 
 def bool(*args, **kwargs):
-	output = {"bool": {} }
+	output = kwargs.get('__vw_set_current', {"bool": {} })
 	
 	if len(args) == 1 and isinstance(args[0], dict):
 		output['bool'] = args[0]

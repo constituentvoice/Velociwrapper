@@ -194,7 +194,7 @@ class VWCollection(object):
 		self._search_params = []
 		self._special_body = {}
 
-	def _create_search_params( self ):
+	def _create_search_params( self, **kwargs ):
 		q = {
 			'index': self.idx,
 			'doc_type': self.type
@@ -203,8 +203,8 @@ class VWCollection(object):
 		if self._raw:
 			q['body'] = self._raw
 		elif len(self._search_params) > 0:
-			q['q'] = self.and_(*self._search_params)
-
+			#q['q'] = self.and_(*self._search_params)
+			q['body'] = self._build_body(query=qdsl.query_string( *self._search_params, **kwargs) )
 		else:
 			q['body'] = {'query':{'match_all':{} } }
 
@@ -261,9 +261,10 @@ class VWCollection(object):
 
 		logger.debug( json.dumps(params) )
 		results = self._es.search( **params )
-		rows = results.get('hits').get('hits')
+		#rows = results.get('hits').get('hits')
 
-		return self._create_obj_list( rows )
+		#return self._create_obj_list( rows )
+		return VWCollectionGen( results )
 
 	def one(self,**kwargs):
 		kwargs['results_per_page'] = 1
@@ -635,3 +636,41 @@ class VWCollection(object):
 			bulk_docs.append( {'_op_type': 'index', '_type': this_type, '_index': this_idx, '_id': this_id, '_source': this_dict } )
 
 		return helpers.bulk(self._es,bulk_docs,chunk_size=self.bulk_chunk_size)
+
+class VWCollectionGen(object):
+	def __init__(self, base_obj, es_results):
+		self.es_results = es_results
+		self.count = 0
+		self.base_obj = base_obj
+
+	def __iter__(self):
+		return self
+	
+	# makes this python 3 compatible
+	def __next__(self):
+		return self.next()
+
+	def next(self):
+		self.count += 1
+		if self.count > len( self.es_results.get('hits').get('hits') ):
+			raise StopIteration
+
+		doc = self.es_results.get('hits').get('hits')[self.count - 1]
+		return self._create_obj(doc)
+
+	def _create_obj(self,doc):
+		src = doc.get('_source')
+		src['_set_by_query'] = True
+		src['id'] = doc.get('_id')
+		return self.base_obj(**src)
+
+	# python abuse! 
+	# seriously though we want to act like a list in many cases
+	def __getitem__(self,idx):
+		return self._create_obj(self.es_results.get('hits').get('hits')[idx] )
+
+	def __len__(self):
+		return len( self.es_results.get('hits').get('hits') )
+
+	def results(self):
+		return self.es_results
