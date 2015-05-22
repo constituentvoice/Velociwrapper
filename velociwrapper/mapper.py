@@ -38,12 +38,12 @@ class Mapper(object):
 
 		# options
 		"""
-		* index = "string" 
+		* index = "string"
 			only map the index defined by "string"
 
 		* index = ['index1','index2' ...]
 			map the indexes defined by entries in list
-		
+
 		"""
 
 		subclasses = []
@@ -82,7 +82,7 @@ class Mapper(object):
 				# fails when no __type__ is found. Likely a subclass
 				# to add other features. We will skip mapping
 				continue
-				
+
 
 			for k,v in sc.__dict__.iteritems():
 				try:
@@ -92,7 +92,7 @@ class Mapper(object):
 					pass
 
 			indexes[idx]['mappings'].update(sc_body)
-			
+
 		return indexes
 
 	def create_indicies(self, **kwargs):
@@ -100,7 +100,7 @@ class Mapper(object):
 
 		for k,v in indexes.iteritems():
 			self._esc.create( index=k, body=v )
-	
+
 	def get_index_for_alias(self, alias):
 		aliasd = self._esc.get_aliases(index=alias)
 		index = ''
@@ -113,9 +113,9 @@ class Mapper(object):
 
 		return index
 
-			
 
-	def reindex(self, idx, newindex, **kwargs):
+
+	def reindex(self, idx, newindex, alias_name=None, remap_alias=None, **kwargs):
 		# are we an alias or an actual index?
 		index = idx;
 		alias = None
@@ -126,22 +126,22 @@ class Mapper(object):
 			index = self.get_index_for_alias(idx)
 			alias_exists = True
 
-		if kwargs.get('alias_name'):
-			alias = kwargs.get('alias_name')
+		if alias_name:
+			alias = alias_name
 
 		# does the new index exist?
 		if not self._esc.exists( newindex ):
 			# if new doesn't exist then create the mapping
-			# as a copy of the old one. The idea being that the mapping 
+			# as a copy of the old one. The idea being that the mapping
 			# was changed
 			index_mapping = self.get_index_map(index=idx) # using "idx" intentionally because models will be defined as alias
 			self._esc.create( index=newindex, body=index_mapping.get(idx)) # have to use the index name as the key to the dict even though only one is returned.  .create() only takes the mapping
-			
+
 		# map our documents
 		helpers.reindex(self._es, index, newindex, **kwargs)
 
-		if kwargs.get('remap_alias'):
-			if alias_exists:
+		if remap_alias or alias_name:
+			if alias_exists and alias != alias_name:
 				self._esc.delete_alias(alias)
 
 			self._esc.put_alias(name=alias,index=newindex)
@@ -154,7 +154,7 @@ class Mapper(object):
 		else:
 			for sc in this_subs:
 				self.get_subclasses(sc,subs)
-	
+
 	def describe(self,cls):
 		body = {}
 		for k,v in cls.__dict__.iteritems():
