@@ -5,7 +5,7 @@ import json
 import types
 import copy
 import logging
-from . import config, qdsl
+from . import config, querybuilder, qdsl
 from .config import logger
 #from .config import es,dsn,default_index,bulk_chunk_size,results_per_page, logger
 from .es_types import *
@@ -27,6 +27,8 @@ class VWCollection(object):
 		self._sort = []
 
 		self.results_per_page = kwargs.get('results_per_page', config.results_per_page)
+
+		self._querybody = querybuilder.QueryBody() # sets up the new query bodies
 
 
 		if kwargs.get('base_obj'):
