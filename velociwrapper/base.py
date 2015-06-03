@@ -77,7 +77,7 @@ class VWBase(object):
 		# copy the __dict__. Need copy so we don't
 		# break things when flags are removed
 		
-		retval['_document'] = copy.deepcopy(self._document)
+		retval = { '_document': copy.deepcopy(self._document) }
 		
 		#for k,v in self.__dict__.iteritems():
 		#	if k != '_es' and k != '_pickling':
