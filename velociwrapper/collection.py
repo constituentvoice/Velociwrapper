@@ -30,7 +30,6 @@ class VWCollection(object):
 
 		self._querybody = querybuilder.QueryBody() # sets up the new query bodies
 
-
 		if kwargs.get('base_obj'):
 			self.base_obj = kwargs.get('base_obj')
 		else:
@@ -94,7 +93,8 @@ class VWCollection(object):
 				if not isinstance(id_filter, list ):
 					id_filter = [id_filter]
 
-				self._build_body( filter={"ids": {"values": id_filter } }, condition=condition )
+				#self._build_body( filter={"ids": {"values": id_filter } }, condition=condition )
+				self._querybody.chain( qdsl.ids( id_filter ), condition=condition )
 			else:
 				try:
 					analyzed = is_analyzed( getattr(self.base_obj, k ) )
@@ -105,28 +105,22 @@ class VWCollection(object):
 					# lists are treat as like "OR"
 					#search_value = " or ".join( [ unicode(vitem) for vitem in v] )
 					#search_value = "(" + search_value + ")"
-
-					filter_terms = []
-					for item in v:
-						if analyzed:
-							self._build_body(query={"match": { k: item } }, condition="should")
-						else:
-							filter_terms.append(item)
-
-
-					if filter_terms:
-						self._build_body(filter={"terms": {k: filter_terms}}, condition=condition )
+					if analyzed:
+						self._querybody.chain( query=qdsl.terms(k, v), condition=condition )
+					else:
+						self._querybody.chain( filter=qdsl.terms(k,v),condition=condition )
 				else:
 					#search_value = unicode(v)
 					if analyzed:
-						self._build_body(query={"match": { unicode(k): v }}, condition=condition)
+						self._querybody.chain(query=qdsl.match( unicode(k), v ), condition=condition)
 					else:
-						self._build_body(filter={"term": { unicode(k): v }}, condition=condition)
+						self._querybody.chain(filter=qdsl.term( unicode(k), v ), condition=condition)
 
 		return self
 
 	def multi_match(self, fields, query, **kwargs):
-		self._build_body(query={"multi_match": { "fields": fields, "query": query } }, condition=kwargs.get('condition', None))
+		#self._build_body(query={"multi_match": { "fields": fields, "query": query } }, condition=kwargs.get('condition', None))
+		self._querybody.chain( query=qdsl.multi_match( fields, query ), condition=kwargs.get('condition', None ) )
 		return self
 
 	def exact( self, field, value,**kwargs ):
@@ -144,9 +138,11 @@ class VWCollection(object):
 			logger.warn( str(field) + ' is not in the base model.' )
 
 		if isinstance(value, list):
-			self._build_body( filter={"terms": { field: value } }, **kwargs )
+			#self._build_body( filter={"terms": { field: value } }, **kwargs )
+			self._querybody( filter=qdsl.terms( field,value ), **kwargs )
 		else:
-			self._build_body( filter={"term": { field: value } }, **kwargs )
+			#self._build_body( filter={"term": { field: value } }, **kwargs )
+			self._querybody( filter=qdsl.term( field, value ), **kwargs )
 
 		return self
 
@@ -195,6 +191,7 @@ class VWCollection(object):
 		self._raw = {}
 		self._search_params = []
 		self._special_body = {}
+		self._querybody = querybuilder.QueryBody()
 
 	def _create_search_params( self, **kwargs ):
 		q = {
@@ -205,9 +202,10 @@ class VWCollection(object):
 		if self._raw:
 			q['body'] = self._raw
 		elif len(self._search_params) > 0:
-			q['body'] = self._build_body(query=qdsl.query_string( self.and_(*self._search_params), **kwargs) )
+			#q['body'] = self._build_body(query=qdsl.query_string( self.and_(*self._search_params), **kwargs) )
+			q['body'] = self._querybody.chain(query=qdsl.query_string( self.and_(*self._search_params), **kwargs) )
 		else:
-			q['body'] = {'query':{'match_all':{} } }
+			q['body'] = qdsl.query( qdsl.match_all() )
 
 
 		# this is the newer search by QDSL
@@ -525,23 +523,24 @@ class VWCollection(object):
 
 	def range(self, field, **kwargs):
 
+
 		search_options = {}
-		for opt in ['condition','minimum_should_match','with_explicit']:
+		for opt in ['condition','minimum_should_match']:
 			if opt in kwargs:
 				search_options[opt] = kwargs.get(opt)
 				del kwargs[opt]
 
-		q = {'range': { field: kwargs } }
-		if self._special_body_is_filtered():
+		q = qdsl.range( field, kwargs )
+		if self._querybody.is_filtered():
 			d = {'filter': q }
 		else:
 			d = {'query': q }
 
-
 		if search_options:
 			d.update(search_options)
 
-		self._build_body(**d)
+		#self._build_body(**d)
+		self._querybody.chain(**d)
 
 		return self
 

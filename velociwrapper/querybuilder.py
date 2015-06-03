@@ -22,17 +22,18 @@ class QueryBody(object):
 		if 'bool' in newpart:
 			newpart = newpart.get('bool')
 
+		_explicit = None
 		if kwargs.get('with_explicit'):
-			self._explicit = kwargs.get('with_explicit')
+			_explicit = kwargs.get('with_explicit')
 
 		if kwargs.get('condition'):
 			if kwargs.get('condition') in ['and','or','not']:
-				self._explicit = kwargs.get('condition')
+				_explicit = kwargs.get('condition')
 			else:
 				self._bool = kwargs.get('condition')
 
 		top_list = getattr(self, self._last_part)
-		
+
 		# find top level bools
 		_found_part = False
 		for t in ['must','should','should_not']:
@@ -40,14 +41,17 @@ class QueryBody(object):
 				thispart = newpart[t]
 				_found_part = True
 				if isinstance(newpart, list):
-					top_list[t].extend(thispart)
+					if _explicit and self._last_part == '_filter':
+						top_list[_explicit].extend( qdsl.terms(newpart) )
+					else:
+						top_list[_explicit].extend(thispart)
 				else:
 					top_list[t].append(thispart)
 
 		# explicit conditions for filters
 		for t in ['and','or','not']:
 			if t in newpart:
-				if self._last_part == '_query': # make sure are a filter
+				if self._last_part == '_query': # make sure we are a filter
 					raise ValueError( 'Type of new chained QDSL must be a filter to use explicit conditions' )
 
 				thispart = newpart[t]
