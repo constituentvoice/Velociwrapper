@@ -1,3 +1,5 @@
+import copy
+
 class QueryBody(object):
 	def __init__(self):
 		self._filter = { 'must':[], 'should':[], 'should_not':[], 'and':[], 'not':[], 'or':[] }

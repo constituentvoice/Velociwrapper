@@ -100,27 +100,28 @@ class VWCollection(object):
 					analyzed = is_analyzed( getattr(self.base_obj, k ) )
 				except AttributeError:
 					analyzed = is_analyzed( v )
+				
+				q_type = 'filter'
+				if analyzed:
+					q_type = 'query'
 
 				if isinstance(v, list):
 					# lists are treat as like "OR"
 					#search_value = " or ".join( [ unicode(vitem) for vitem in v] )
 					#search_value = "(" + search_value + ")"
-					if analyzed:
-						self._querybody.chain( query=qdsl.terms(k, v), condition=condition )
-					else:
-						self._querybody.chain( filter=qdsl.terms(k,v),condition=condition )
+					self._querybody.chain( qdsl.terms(k,v),condition=condition, type=q_type )
 				else:
 					#search_value = unicode(v)
 					if analyzed:
-						self._querybody.chain(query=qdsl.match( unicode(k), v ), condition=condition)
+						self._querybody.chain(qdsl.match( unicode(k), v ), condition=condition,type=q_type)
 					else:
-						self._querybody.chain(filter=qdsl.term( unicode(k), v ), condition=condition)
+						self._querybody.chain(qdsl.term( unicode(k), v ), condition=condition,type=q_type)
 
 		return self
 
 	def multi_match(self, fields, query, **kwargs):
 		#self._build_body(query={"multi_match": { "fields": fields, "query": query } }, condition=kwargs.get('condition', None))
-		self._querybody.chain( query=qdsl.multi_match( fields, query ), condition=kwargs.get('condition', None ) )
+		self._querybody.chain( qdsl.multi_match( fields, query ), condition=kwargs.get('condition', None ), type='query' )
 		return self
 
 	def exact( self, field, value,**kwargs ):
@@ -137,12 +138,14 @@ class VWCollection(object):
 		except AttributeError:
 			logger.warn( str(field) + ' is not in the base model.' )
 
+		kwargs['type'] = 'filter'
 		if isinstance(value, list):
 			#self._build_body( filter={"terms": { field: value } }, **kwargs )
-			self._querybody( filter=qdsl.terms( field,value ), **kwargs )
+
+			self._querybody.chain( qdsl.terms( field,value ), **kwargs )
 		else:
 			#self._build_body( filter={"term": { field: value } }, **kwargs )
-			self._querybody( filter=qdsl.term( field, value ), **kwargs )
+			self._querybody.chain(qdsl.term( field, value ), **kwargs )
 
 		return self
 
@@ -202,25 +205,26 @@ class VWCollection(object):
 		if self._raw:
 			q['body'] = self._raw
 		elif len(self._search_params) > 0:
+			kwargs['type'] = 'query'
 			#q['body'] = self._build_body(query=qdsl.query_string( self.and_(*self._search_params), **kwargs) )
-			q['body'] = self._querybody.chain(query=qdsl.query_string( self.and_(*self._search_params), **kwargs) )
+			self._querybody.chain( qdsl.query_string( self.and_(*self._search_params), **kwargs) )
 		else:
 			q['body'] = qdsl.query( qdsl.match_all() )
 
-
-		# this is the newer search by QDSL
+		# depricated
 		if self._special_body:
 			q['body'] = self._special_body
 
+		if self._querybody.is_filtered() or self._querybody.is_query():
+			q['body'] = self._querybody.build()
+
 		logger.debug(json.dumps(q))
 		return q
-
 
 	def count(self):
 		params = self._create_search_params()
 		resp = self._es.count(**params)
 		return resp.get('count')
-
 
 	def __len__(self):
 		return self.count()
@@ -540,7 +544,7 @@ class VWCollection(object):
 			d.update(search_options)
 
 		#self._build_body(**d)
-		self._querybody.chain(**d)
+		self._querybody.chain(d)
 
 		return self
 
