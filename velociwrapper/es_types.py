@@ -264,7 +264,12 @@ class ESType(type):
 			arg_dict = {}
 			valid = {}
 			valid.update(self.__es_properties__.get('Any'))
-			valid.update( self.__es_properties__.get(self.__class__.__name__) )
+
+			print self.__class__.__name__
+			try:
+				valid.update( self.__es_properties__.get(self.__class__.__name__) )
+			except TypeError:
+				pass
 			
 			for k in dir(self):
 				if k in valid:
