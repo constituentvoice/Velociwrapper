@@ -138,7 +138,7 @@ class QueryBody(object):
 				_output_filter = { 'bool': _filter }
 			else:
 				_output_filter = _filter[f_type]
-			_output_filter = { 'filter': _output_filter }
+			#_output_filter = { 'filter': _output_filter }
 
 			_output_query['filter'] = _output_filter
 			_output_query = { 'filtered': _output_query }
