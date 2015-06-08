@@ -6,7 +6,7 @@ from traceback import format_exc
 
 # check the python type and return the appropriate ESType class
 def create_es_type(value):
-	
+
 	# check if we're already an es type
 	try:
 		if value.__metaclass__ == ESType:
@@ -17,7 +17,7 @@ def create_es_type(value):
 	if type(value) == str or type(value) == unicode:
 		# strings could be a lot of things
 		# try to see if it might be a date
-			
+
 		# dateutil isn't good at determining if we have a date (ok at parsing if we know there's a date). To that end we'll only accept a couple of valid formats
 		test_date = value.strip()
 		test_date = re.sub("(?:Z|\s*[\+\-]\d\d:?\d\d)$", '', test_date)
@@ -31,7 +31,7 @@ def create_es_type(value):
 				test_date = datetime.strptime( test_date, '%Y-%m-%dT%H:%M:%S')
 				return DateTime(test_date)
 			except ValueError:
-				
+
 				try:
 					test_date = datetime.strptime( test_date, '%Y-%m-%dT%H:%M:%S.%f')
 					return DateTime(test_date)
@@ -52,7 +52,7 @@ def create_es_type(value):
 					if g < 1 or g > 254:
 						# nope
 						valid_ip = False
-				
+
 				if valid_ip:
 					return IP(value)
 		except:
@@ -68,13 +68,13 @@ def create_es_type(value):
 
 	if type(value) == int:
 		return Integer(value)
-	
+
 	if type(value) == bool:
 		return Boolean(value)
 
 	if type(value) == long:
 		return Long(value)
-	
+
 	if type(value) == float:
 		return Float(value)
 
@@ -87,7 +87,7 @@ def create_es_type(value):
 	# if here, just return the value as is
 	return value
 
-# this is to determine if the field should be analyzed 
+# this is to determine if the field should be analyzed
 # based on type and settings. Used a lot to determine whether to use
 # term filters or matches
 # works with estypes and non-estypes
@@ -97,7 +97,7 @@ def is_analyzed(value):
 	try:
 		if value.__metaclass__ == ESType:
 			if isinstance(value, String):
-				analyzed = value.es_args().get(analyzed)
+				analyzed = value.es_args().get('analyzed')
 				if analyzed == None:
 					analyzed = True
 
@@ -217,12 +217,12 @@ class ESType(type):
 			}
 			# attachment not specified because it has no other args
 		}
-		
+
 		dct['__es_properties__']['Array'] = {}
 		for k,v in dct['__es_properties__'].iteritems():
 			if k == 'Array':
 				continue
-			
+
 			dct['__es_properties__']['Array'].update(v)
 
 		def get_prop_dict(self):
@@ -253,8 +253,8 @@ class ESType(type):
 							v = 'analyzed'
 						else:
 							v = 'not_analyzed'
-					
-					if v != None:	
+
+					if v != None:
 						prop_dict[keyname] = v
 
 			return prop_dict
@@ -264,18 +264,21 @@ class ESType(type):
 			arg_dict = {}
 			valid = {}
 			valid.update(self.__es_properties__.get('Any'))
-			valid.update( self.__es_properties__.get(self.__class__.__name__) )
-			
+
+			try:
+				valid.update( self.__es_properties__.get(self.__class__.__name__) )
+			except TypeError:
+				pass
+
 			for k in dir(self):
 				if k in valid:
 					v = getattr(self,k)
 					arg_dict[k] = v
 			return arg_dict
 
-
-		dct['prop_dict'] = get_prop_dict	
+		dct['prop_dict'] = get_prop_dict
 		dct['es_args'] = get_es_arguments
-		
+
 		return super(ESType,cls).__new__(cls,clsname,bases,dct)
 
 	def __call__( cls, *args, **kwargs ):
@@ -285,7 +288,7 @@ class ESType(type):
 		base_kwargs = {}
 		es_kwargs = {}
 		_name_ = cls.__name__
-		
+
 		valid = []
 		for obj in cls.mro():
 			if obj.__name__ in cls.__es_properties__:
@@ -311,12 +314,12 @@ class ESType(type):
 
 			elif cls == Date and isinstance(a,date):
 				args = [a.year,a.month,a.day]
-	
+
 		inst = super(ESType,cls).__call__(*args,**base_kwargs)
-		
+
 		for k,v in es_kwargs.iteritems():
 			setattr(inst, k, v ) # testing
-		
+
 		return inst
 
 # lists
@@ -327,7 +330,7 @@ class Array(list):
 # converts strings to unicode
 class String(unicode):
 	__metaclass__ = ESType
-	
+
 class Number(float):
 	__metaclass__ = ESType
 	precision_step = 8
@@ -413,7 +416,7 @@ class GeoShape(object):
 	__metaclass__ = ESType
 	tree = 'geohash'
 	precision = 'meters'
-	
+
 	# TODO - do we want to internally implement all the GeoJSON that goes along with this?
 
 class Attachment(object):
