@@ -96,10 +96,20 @@ class Mapper(object):
 		return indexes
 
 	def create_indicies(self, **kwargs):
+
+		suffix = kwargs.get('suffix')
 		indexes = self.get_index_map(**kwargs)
 
 		for k,v in indexes.iteritems():
-			self._esc.create( index=k, body=v )
+			if suffix:
+				idx = k + suffix
+			else:
+				idx = k
+
+			self._esc.create( index=idx, body=v )
+
+			if suffix:
+				self._esc.put_alias(index=idx, name=k)
 
 	def get_index_for_alias(self, alias):
 		aliasd = self._esc.get_aliases(index=alias)

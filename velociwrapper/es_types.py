@@ -262,8 +262,12 @@ class ESType(type):
 		# for recreating the arguments in a new instance
 		def get_es_arguments(self):
 			arg_dict = {}
+			valid = {}
+			valid.update(self.__es_properties__.get('Any'))
+			valid.update( self.__es_properties__.get(self.__class__.__name__) )
+			
 			for k in dir(self):
-				if k in self.__es_properties__:
+				if k in valid:
 					v = getattr(self,k)
 					arg_dict[k] = v
 			return arg_dict
@@ -275,7 +279,6 @@ class ESType(type):
 		return super(ESType,cls).__new__(cls,clsname,bases,dct)
 
 	def __call__( cls, *args, **kwargs ):
-		
 		# we have to split kw args going to the base class
 		# and args that are for elastic search
 		# annoying but not a big deal
@@ -287,7 +290,6 @@ class ESType(type):
 		for obj in cls.mro():
 			if obj.__name__ in cls.__es_properties__:
 				valid.extend( list( cls.__es_properties__.get(obj.__name__) ) )
-
 		valid.extend( list( cls.__es_properties__.get('Any') ) )
 
 		for k,v in kwargs.iteritems():
@@ -295,7 +297,7 @@ class ESType(type):
 				es_kwargs[k] = v
 			else:
 				base_kwargs[k] = v
-		
+
 		# fix for datetime calls. I really dont like this but I can't seem
 		# to hook it anywhere
 
@@ -314,7 +316,7 @@ class ESType(type):
 		
 		for k,v in es_kwargs.iteritems():
 			setattr(inst, k, v ) # testing
-
+		
 		return inst
 
 # lists

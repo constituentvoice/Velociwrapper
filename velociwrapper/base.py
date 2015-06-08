@@ -76,12 +76,11 @@ class VWBase(object):
 	
 		# copy the __dict__. Need copy so we don't
 		# break things when flags are removed
+		retval = {}
 		
-		retval = copy.deepcopy(self._document)
-		
-		#for k,v in self.__dict__.iteritems():
-		#	if k != '_es' and k != '_pickling':
-		#		retval[k] = copy.deepcopy(v)
+		for k,v in self.__dict__.iteritems():
+			if k != '_es' and k != '_pickling':
+				retval[k] = copy.deepcopy(v)
 
 		self._pickling = False
 		return retval
@@ -89,9 +88,13 @@ class VWBase(object):
 	def __setstate__(self,state):
 		self._pickling = True
 
-		#for k,v in state.iteritems():
-		#	setattr(self,k,v)
-		self._document = state.get('_document')
+		for k,v in state.iteritems():
+			setattr(self,k,v)
+
+		#self._document = state.get('_document')
+		#super(VWBase,self).__setattr__('_document',state.get('_document'))
+
+		#setattr(self, '_document', state.get('_document') )
 
 		# recreate the _es connection (doesn't reset for some reason)
 		self._es = elasticsearch.Elasticsearch(config.dsn)
@@ -107,10 +110,15 @@ class VWBase(object):
 		except AttributeError:
 			pass
 		
-		doc = super(VWBase,self).__getattribute__('_document')
-		if name in doc:
-			v = doc.get(name)
-		else:
+		v = None
+		try:
+			doc = super(VWBase,self).__getattribute__('_document')
+			if name in doc:
+				v = doc.get(name)
+		except AttributeError:
+			pass
+		
+		if not v:
 			v = super(VWBase,self).__getattribute__(name)
 
 		# we want to keep the relationships if set_by_query in the collection so we only execute with direct access
@@ -201,7 +209,7 @@ class VWBase(object):
 				
 				# special rules for names with underscores.
 				# seting the _ values will not trigger an update. 
-				if name not in dir(self) or name in ['_set_by_query','_deleted','_watch','_new','_no_ex','_pickling'] or self._pickling:
+				if name not in dir(self) or name in ['_set_by_query','_deleted','_watch','_new','_no_ex','_pickling','_document'] or self._pickling:
 					object.__setattr__(self,name,value)  # don't copy this stuff. Set it as is
 
 			else:
