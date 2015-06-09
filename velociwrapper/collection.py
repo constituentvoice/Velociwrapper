@@ -156,9 +156,11 @@ class VWCollection(object):
 	def and_(self,*args):
 		return ' AND '.join(args)
 
-	def get(self,id):
+	def get(self,id, **kwargs):
 		try:
-			return self._create_obj( self._es.get(index=self.idx,doc_type=self.type,id=id) )
+			params = dict(index=self.idx, doc_type=self.type, id=id)
+			params.update(kwargs)
+			return self._create_obj( self._es.get(**params) )
 		except:
 			return None
 
