@@ -178,8 +178,12 @@ class VWCollection(object):
 
 		return []
 
-	def get_like_this(self,doc_id):
-		res = self._es.mlt(index=self.idx,doc_type=self.type,id=doc_id )
+	def get_like_this(self,doc_id,**kwargs):
+		
+		params = dict(index=self.idx,doc_type=self.type,id=doc_id )
+		params.update(kwargs)
+		res = self._es.mlt(**params)
+
 		if res and res.get('docs'):
 			return self._create_obj_list( res.get('docs') )
 		else:
@@ -558,15 +562,8 @@ class VWCollection(object):
 		if 'condition' in kwargs:
 			del kwargs['condition']
 
-
-		if condition == 'and':
-			condition = 'explicit_and'
-		elif condition == 'or':
-			condition = 'explicit_or'
-		elif condition == 'not':
-			condition = 'explicit_not'
-
-		self._build_body( filter={"geo_distance": { "distance": distance, field: [lon,lat] } }, condition='explicit_and', **kwargs )
+		#self._build_body( filter={"geo_distance": { "distance": distance, field: [lon,lat] } }, condition='explicit_and', **kwargs )
+		self._querybody.chain( qdsl.filter( qdsl.geo_distance( field, [lon,lat], distance, **kwargs ) ), condition=condition )
 		return self
 
 	def missing( self, field, **kwargs):
