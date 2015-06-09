@@ -125,10 +125,8 @@ class QueryBody(object):
 		if is_query:
 			if query_is_multi_condition:
 				_output_query = { 'bool': _query }
-			elif len(_query[q_type]) == 1:
-				_output_query = _query[q_type][0]
 			else:
-				_output_query = _query[q_type][0]
+				_output_query = _query[q_type]
 
 			_output_query = { 'query': _output_query }
 		else:

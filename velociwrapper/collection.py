@@ -542,7 +542,7 @@ class VWCollection(object):
 				search_options[opt] = kwargs.get(opt)
 				del kwargs[opt]
 
-		q = qdsl.range( field, kwargs )
+		q = qdsl.range( field, **kwargs )
 		if self._querybody.is_filtered():
 			d = {'filter': q }
 		else:
@@ -567,20 +567,21 @@ class VWCollection(object):
 		return self
 
 	def missing( self, field, **kwargs):
-		kwargs['filter'] = {"missing":{"field": field } }
-		self._build_body( **kwargs )
+		#kwargs['filter'] = {"missing":{"field": field } }
+		#self._build_body( **kwargs )
+		self._querybody.chain( qdsl.filter( qdsl.missing( field ) ) )
 		return self
 
 	def exists( self, field, **kwargs):
-		kwargs['filter'] = {"exists": { "field": field } }
-		self._build_body( **kwargs )
+		#kwargs['filter'] = {"exists": { "field": field } }
+		#self._build_body( **kwargs )
+		self._querybody.chain( qdsl.filter( qdsl.exists( field, **kwargs ) ) )
 		return self
 
 	def delete(self, **kwargs):
 		params = self._create_search_params()
 		params.update(kwargs)
 		self._es.delete_by_query( **params )
-
 
 	def delete_in(self, ids):
 		if not isinstance(ids, list):
