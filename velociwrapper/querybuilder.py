@@ -125,8 +125,10 @@ class QueryBody(object):
 		if is_query:
 			if query_is_multi_condition:
 				_output_query = { 'bool': _query }
+			elif len(_query[q_type]) == 1:
+				_output_query = _query[q_type][0]
 			else:
-				_output_query = _query[q_type]
+				_output_query = _query[q_type][0]
 
 			_output_query = { 'query': _output_query }
 		else:
@@ -136,11 +138,14 @@ class QueryBody(object):
 			_output_filter = {}
 			if filter_is_multi_condition:
 				_output_filter = { 'bool': _filter }
+			elif len(_filter[f_type]) == 1:
+				_output_filter = _filter[f_type][0]
 			else:
 				_output_filter = _filter[f_type]
+
 			#_output_filter = { 'filter': _output_filter }
 
 			_output_query['filter'] = _output_filter
-			_output_query = { 'filtered': _output_query }
+			_output_query = {'query': { 'filtered': _output_query } }
 
 		return _output_query

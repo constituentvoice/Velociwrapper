@@ -121,7 +121,7 @@ class VWCollection(object):
 
 	def multi_match(self, fields, query, **kwargs):
 		#self._build_body(query={"multi_match": { "fields": fields, "query": query } }, condition=kwargs.get('condition', None))
-		self._querybody.chain( qdsl.multi_match( fields, query ), condition=kwargs.get('condition', None ), type='query' )
+		self._querybody.chain( qdsl.multi_match( query, fields ), condition=kwargs.get('condition', None ), type='query' )
 		return self
 
 	def exact( self, field, value,**kwargs ):
