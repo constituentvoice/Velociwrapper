@@ -165,10 +165,12 @@ class VWCollection(object):
 	def refresh(self, **kwargs):
 		self._esc.refresh(index=self.idx, **kwargs)
 
-	def get_in(self, ids):
+	def get_in(self, ids,**kwargs):
 
 		if len(ids) > 0: # check for ids. empty list returns an empty list (instead of exception)
-			res = self._es.mget(index=self.idx,doc_type=self.type,body={'ids':ids})
+			params = dict( index=self.idx, doc_type=self.type, body={'ids':ids})
+			params.update(kwargs);
+			res = self._es.mget(**params)
 			if res and res.get('docs'):
 				return self._create_obj_list( res.get('docs') )
 
