@@ -55,13 +55,12 @@ class VWBase(object):
 			if not isinstance(v,types.MethodType) and not k[0] == '_':
 
 				# check if we were called with a variable. If so set
-				if kwargs.get(k):
-					setattr(self,k,kwargs.get(k))
-				else:
-					# copy the variable from default. Set in the document directly
-					# hopefully this will avoid the copying problems
-					v = copy.deepcopy(v)
-					self._document[k] = v
+				try:
+					v = kwargs[k]
+				except KeyError:
+					pass
+
+				setattr(self,k,v)
 
 		if 'id' not in kwargs:
 			self.id = str(uuid4())
@@ -120,7 +119,10 @@ class VWBase(object):
 			pass
 		
 		if not v:
-			v = super(VWBase,self).__getattribute__(name)
+			v = super(VWBase,self).__getattribute__(name) # prevent defaults from being set with instance values
+		
+			if not isinstance(v,types.MethodType) and not name[0] == '_':
+				v = copy.deepcopy(v)
 
 		# we want to keep the relationships if set_by_query in the collection so we only execute with direct access
 		# (we'll see, it might have an unintended side-effect)
@@ -141,15 +143,15 @@ class VWBase(object):
 				return v
 		else:
 			return v
-
+	
 	def __setattr__(self,name,value):
-		print str(value)
 		if '_deleted' in dir(self) and self._deleted:
 			raise ObjectDeletedError
 
 		# we need to do some magic if the current value is a relationship
 		try:
 			currvalue = super(VWBase,self).__getattribute__(name)
+
 		except AttributeError:
 			currvalue = None
 		
@@ -216,8 +218,7 @@ class VWBase(object):
 
 			else:
 				currvalue = create_es_type(currvalue) # create it as an es_type
-				#value = copy.deepcopy(value) # copy first before we manipulate
-			
+
 				try:
 					if value._metaclass__ == ESType:
 						set_value_cls = False
