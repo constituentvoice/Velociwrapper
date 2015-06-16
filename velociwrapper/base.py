@@ -58,15 +58,10 @@ class VWBase(object):
 				if kwargs.get(k):
 					setattr(self,k,kwargs.get(k))
 				else:
-					# if not the variable should be set to default on this instance
-					# if the type is a dict or array then copy it
-					# otherwise we end up with the same memory location pointing to all instances
-					# (oops)
-					if isinstance(v, list) or isinstance(v, dict):
-						v = copy.deepcopy(v)
-
-					setattr(self,k,v)
-
+					# copy the variable from default. Set in the document directly
+					# hopefully this will avoid the copying problems
+					v = copy.deepcopy(v)
+					self._document[k] = v
 
 		if 'id' not in kwargs:
 			self.id = str(uuid4())
@@ -148,6 +143,7 @@ class VWBase(object):
 			return v
 
 	def __setattr__(self,name,value):
+		print str(value)
 		if '_deleted' in dir(self) and self._deleted:
 			raise ObjectDeletedError
 
@@ -271,7 +267,7 @@ class VWBase(object):
 									if value.__class__ != currvalue.__class__:
 										raise TypeError('strict type enforcement is enabled. ' + name + ' must be set with ' + currvalue.__class__.__name__)
 								except:
-									# errors were value isn't even a class will raise their own exception
+									# errors where value isn't even a class will raise their own exception
 									# caught here to avoid attribute errors from this block being passed along below
 									raise
 
