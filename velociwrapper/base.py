@@ -59,6 +59,12 @@ class VWBase(object):
 					setattr(self,k,kwargs.get(k))
 				else:
 					# if not the variable should be set to default on this instance
+					# if the type is a dict or array then copy it
+					# otherwise we end up with the same memory location pointing to all instances
+					# (oops)
+					if isinstance(v, list) or isinstance(v, dict):
+						v = copy.deepcopy(v)
+
 					setattr(self,k,v)
 
 
