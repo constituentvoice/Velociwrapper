@@ -558,12 +558,12 @@ class VWCollection(object):
 
 	def search_geo(self, field, distance, lat, lon,**kwargs):
 
-		condition = kwargs.get('condition', 'explicit_and')
+		condition = kwargs.get('condition', 'and')
 		if 'condition' in kwargs:
 			del kwargs['condition']
 
 		#self._build_body( filter={"geo_distance": { "distance": distance, field: [lon,lat] } }, condition='explicit_and', **kwargs )
-		self._querybody.chain( qdsl.filter( qdsl.geo_distance( field, [lon,lat], distance, **kwargs ) ), condition=condition )
+		self._querybody.chain( qdsl.filter_( qdsl.geo_distance( field, [lon,lat], distance, **kwargs ) ), condition=condition )
 		return self
 
 	def missing( self, field, **kwargs):
