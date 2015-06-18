@@ -111,6 +111,7 @@ class VWBase(object):
 			pass
 		
 		v = None
+		doc = None
 		try:
 			doc = super(VWBase,self).__getattribute__('_document')
 			if name in doc:
@@ -119,10 +120,17 @@ class VWBase(object):
 			pass
 		
 		if not v:
-			v = super(VWBase,self).__getattribute__(name) # prevent defaults from being set with instance values
-		
-			if not isinstance(v,types.MethodType) and not name[0] == '_':
-				v = copy.deepcopy(v)
+			v = super(VWBase,self).__getattribute__(name) 
+			
+			# instance attribute was becoming a refeence to the class attribute. Not what we wanted
+			# make a copy
+			if doc:
+				if not isinstance(v,types.MethodType) and not name[0] == '_':
+					v = copy.deepcopy(v)
+					self._document[name] = v # setattribute doesn't seem to work :(
+					return self._document[name]
+
+
 
 		# we want to keep the relationships if set_by_query in the collection so we only execute with direct access
 		# (we'll see, it might have an unintended side-effect)
