@@ -1,9 +1,10 @@
 import copy
+from . import qdsl
 
 class QueryBody(object):
 	def __init__(self):
-		self._filter = { 'must':[], 'should':[], 'should_not':[], 'and':[], 'not':[], 'or':[] }
-		self._query = { 'must':[], 'should':[], 'should_not':[] }
+		self._filter = { 'must':[], 'should':[], 'must_not':[], 'and':[], 'not':[], 'or':[] }
+		self._query = { 'must':[], 'should':[], 'must_not':[] }
 		self._bool = 'must'
 		self._last_part = '_query'
 		self._explicit = None
@@ -47,7 +48,7 @@ class QueryBody(object):
 
 					# if we have and, or, not conditions. The bool conditions need to be contained under them. We contain them in the last called condition
 					bool_args = []
-					for t in ['must','should','should_not']:
+					for t in ['must','should','must_not']:
 						cond_method = getattr( qdsl, t )
 						if len(self._filter[t]) > 1:
 							bool_args.append( cond_method( qdsl.terms( self._filter[t] ) ) )
@@ -67,7 +68,7 @@ class QueryBody(object):
 				if self._last_part == '_filter':
 					# if we have and, or, not bools then convert the bool query bools
 					if self._explicit and not tl_condition:
-						ex_match = {'must': 'and', 'should': 'or', 'should_not': 'not' }
+						ex_match = {'must': 'and', 'should': 'or', 'must_not': 'not' }
 						new_condition = ex_match.get(condition)
 						if new_condition:
 							condition = new_condition
@@ -78,7 +79,7 @@ class QueryBody(object):
 						print "FILTER LIST"
 						self._filter[condition].append( qdsl.terms( newpart ) )
 					else:
-						print "FILTER HERE"
+						print "FILTER HERE %s" % condition
 						# should be a dictionary!
 						self._filter[condition].append( newpart )
 				elif self._last_part == '_query':
@@ -99,7 +100,7 @@ class QueryBody(object):
 					newpart = newpart.get('bool')
 				
 				_found_ll = False
-				for t in ['must','should','should_not']:
+				for t in ['must','should','must_not']:
 					if t in newpart:
 						# chain each part separately
 						_found_ll = True
@@ -113,12 +114,12 @@ class QueryBody(object):
 		return self
 
 	def is_filtered(self):
-		for t in ['must','should','should_not','and','or','not']:
+		for t in ['must','should','must_not','and','or','not']:
 			if len(self._filter[t]) > 0:
 				return True
 
 	def is_query(self):
-		for t in ['must','should','should_not']:
+		for t in ['must','should','must_not']:
 			if len(self._query[t] ) > 0:
 				return True
 
@@ -142,7 +143,7 @@ class QueryBody(object):
 		_query = copy.deepcopy( self._query )
 		_filter = copy.deepcopy(self._filter )
 		
-		for t in ['must','should','should_not']:
+		for t in ['must','should','must_not']:
 			if len(_filter[t]) > 0:
 				is_filtered = True
 				f_type_count += 1

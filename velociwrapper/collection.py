@@ -85,7 +85,8 @@ class VWCollection(object):
 		if kwargs.get('condition'):
 			condition=kwargs.get('condition')
 			del kwargs['condition']
-
+		
+		condition = self._translate_bool_condition( condition )
 
 		for k,v in kwargs.iteritems():
 			if k == 'id' or k == 'ids':
@@ -284,6 +285,25 @@ class VWCollection(object):
 			return results[0]
 		except IndexError:
 			raise NoResultsFound('No result found for one()')
+
+	# this is for legacy purposes in filter_by
+	def _translate_bool_condition(self,_bool_condition):
+		if _bool_condition == 'and':
+			_bool_condition = 'must'
+		elif _bool_condition == 'or':
+			_bool_condition = 'should'
+		elif _bool_condition == 'not':
+			_bool_condition = 'must_not'
+
+		# this is for things like geo_distance where we explicitly want the true and/or/not
+		elif _bool_condition == 'explicit_and':
+			_bool_condition = 'and'
+		elif _bool_condition == 'explicit_or':
+			_bool_condition = 'or'
+		elif _bool_condition == 'explicit_not':
+			_bool_condition = 'not'
+
+		return _bool_condition
 
 	# builds query bodies
 	def _build_body( self, **kwargs ):
