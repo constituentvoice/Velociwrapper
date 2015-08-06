@@ -137,6 +137,8 @@ class QueryBody(object):
 		is_query = False
 		filter_is_multi_condition = False
 		query_is_multi_condition = False
+		filter_needs_bool = False
+		query_needs_bool = False
 
 		f_type_count = 0
 		q_type_count = 0
@@ -157,10 +159,10 @@ class QueryBody(object):
 					is_filtered = True
 					f_type_count += 1
 					f_type = t
-					if len(_filter[t]) > 1:
-						filter_is_multi_condition = True
-					else:
+					if len(_filter[t]) == 1:
 						_filter[t] = _filter[t][0] # if only one remove the list
+					elif t in ['must','should','must_not']:
+						filter_needs_bool = True
 				else:
 					del _filter[t]
 			except KeyError:
@@ -171,24 +173,27 @@ class QueryBody(object):
 					is_query = True
 					q_type_count += 1
 					q_type = t
-					if len(_query[t]) > 1:
-						query_is_multi_condition = True
-					else:
+					if len(_query[t]) ==  1:
 						_query[t] = _query[t][0] # if only one remove the list
+					else:
+						query_needs_bool = True
 				else:
 					del _query[t]
 			except KeyError:
 				pass
 
 		if f_type_count > 1:
+			if not self.explicit:
+				filter_needs_bool = True
 			filter_is_multi_condition = True
 
 		if q_type_count > 1:
 			query_is_multi_condition = True
+			query_needs_bool = True
 
 		_output_query = {}
 		if is_query:
-			if query_is_multi_condition:
+			if query_needs_bool:
 				_output_query = { 'bool': _query }
 			else:
 				_output_query = _query[q_type]
@@ -199,14 +204,14 @@ class QueryBody(object):
 
 		if is_filtered:
 			_output_filter = {}
-			if filter_is_multi_condition:
+			if filter_needs_bool:
 				_output_filter = { 'bool': _filter }
 			#elif len(_filter[f_type]) == 1:
 			#	_output_filter = _filter[f_type][0]
+			elif filter_is_multi_condition or isinstance( _filter[f_type], list):
+				_output_filter = _filter # explicit queries
 			else:
 				_output_filter = _filter[f_type]
-
-			#_output_filter = { 'filter': _output_filter }
 
 			_output_query['filter'] = _output_filter
 			_output_query = {'query': { 'filtered': _output_query } }
