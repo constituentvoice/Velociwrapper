@@ -80,7 +80,7 @@ class QueryBody(object):
 					return self
 			# else treat the condition as 'must'
 
-			if self._expliict:
+			if self._explicit:
 				# check to see if we need to move existing bools inside an explicit condition
 				for btype, ttype in condition_map:
 					if self._filter.get(btype):
