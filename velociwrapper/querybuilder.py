@@ -82,7 +82,7 @@ class QueryBody(object):
 
 			if self._explicit:
 				# check to see if we need to move existing bools inside an explicit condition
-				for btype, ttype in condition_map:
+				for btype, ttype in condition_map.iteritems():
 					if self._filter.get(btype):
 						self._filter[ttype].extend( self._filter[btype] )
 
@@ -252,33 +252,33 @@ class QueryBody(object):
 		_filter = copy.deepcopy(self._filter )
 		
 		for t in ['and', 'or','not', 'must','should','must_not']:
-			if len(_filter[t]) > 0:
-				is_filtered = True
-				f_type_count += 1
-				f_type = t
-				if len(_filter[t]) > 1:
-					filter_is_multi_condition = True
+			try:
+				if len(_filter[t]) > 0:
+					is_filtered = True
+					f_type_count += 1
+					f_type = t
+					if len(_filter[t]) > 1:
+						filter_is_multi_condition = True
+					else:
+						_filter[t] = _filter[t][0] # if only one remove the list
 				else:
-					_filter[t] = _filter[t][0] # if only one remove the list
-			else:
-				try:
 					del _filter[t]
-				except KeyError:
-					pass
+			except KeyError:
+				pass
 
-			if len(_query[t]) > 0:
-				is_query = True
-				q_type_count += 1
-				q_type = t
-				if len(_query[t]) > 1:
-					query_is_multi_condition = True
+			try:
+				if len(_query[t]) > 0:
+					is_query = True
+					q_type_count += 1
+					q_type = t
+					if len(_query[t]) > 1:
+						query_is_multi_condition = True
+					else:
+						_query[t] = _query[t][0] # if only one remove the list
 				else:
-					_query[t] = _query[t][0] # if only one remove the list
-			else:
-				try:
 					del _query[t]
-				except KeyError:
-					pass
+			except KeyError:
+				pass
 
 		if f_type_count > 1:
 			filter_is_multi_condition = True
