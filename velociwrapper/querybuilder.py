@@ -73,9 +73,10 @@ class QueryBody(object):
 			elif isinstance(newpart, dict):
 				_chained = False
 				for lt in ['must','should','must_not']:
-					kwargs['condition'] = lt
-					self.chain( newpart[lt], **kwargs)
-					_chained = True
+					if lt in newpart:
+						kwargs['condition'] = lt
+						self.chain( newpart[lt], **kwargs)
+						_chained = True
 				if _chained:
 					return self
 			# else treat the condition as 'must'
@@ -105,10 +106,10 @@ class QueryBody(object):
 			elif isinstance(newpart, dict):
 				_chained = False
 				for lt in ['must','should','must_not']:
-					kwargs['condition'] = lt
-					self.chain( newpart[lt], **kwargs)
-					_chained = True
-
+					if lt in newpart:
+						kwargs['condition'] = lt
+						self.chain( newpart[lt], **kwargs)
+						_chained = True
 				if _chained:
 					return self
 			# else assume must
