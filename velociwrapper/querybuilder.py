@@ -90,7 +90,7 @@ class QueryBody(object):
 				
 				# we definitely have explicit conditions. Turn the condition into the explicit
 				self._explicit = _condition = condition_map[_condition]
-				self[_condition].append(newpart)
+				self._filter[_condition].append(newpart)
 			else:
 				# chain the newpart to the toplevel bool
 				if _condition not in self._filter:
