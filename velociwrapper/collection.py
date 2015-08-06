@@ -216,7 +216,7 @@ class VWCollection(object):
 		elif len(self._search_params) > 0:
 			kwargs['type'] = 'query'
 			#q['body'] = self._build_body(query=qdsl.query_string( self.and_(*self._search_params), **kwargs) )
-			self._querybody.chain( qdsl.query_string( self.and_(*self._search_params), **kwargs) )
+			self._querybody.chain( qdsl.query_string( self.and_(*self._search_params)), **kwargs)
 		else:
 			q['body'] = qdsl.query( qdsl.match_all() )
 

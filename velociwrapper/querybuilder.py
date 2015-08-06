@@ -9,6 +9,118 @@ class QueryBody(object):
 		self._last_part = '_query'
 		self._explicit = None
 
+	def chain( self, newpart, **kwargs ):
+
+		condition_map = {'must':'and', 'should':'or', 'must_not': 'not' }
+		condition_rev_map = {'and':'must', 'or':'should', 'not': 'must_not' }
+		# figure out if we're a filter or a query being chained
+
+		# explicitly stated
+		if kwargs.get('type'):
+			self._last_part = '_' + kwargs.get('type')
+		elif isinstance(newpart, dict):
+			_chained = False
+			# comes in from dict, recursively chain each part
+			if 'filter' in newpart:
+				kwargs['type'] = 'filter'
+				self.chain(newpart['filter'], **kwargs)
+				_chained = True
+
+			if 'query' in newpart:
+				kwargs['type'] = 'query'
+				self.chain(newpart['query'], **kwargs)
+				_chained = True
+
+			# we should have completed the chain at this point so just return
+			if _chained:
+				return self
+		# else uses _last_par and assumes query if not specified
+		
+		# Explicit conditions only apply to filters
+		if self._last_part == '_filter':
+			# figure out if we have a top level condition (and, or, not)
+			# check if its explicitly stated
+			if kwargs.get('with_explicit'):
+				self._explicit = kwargs.get('with_explicit')
+			# Check if the condition parameter is really a top level
+			elif kwargs.get('condition') in ['and','or','not']:
+				self._explicit = kwargs.get('condition')
+
+				# reverse the regular condition, this allows for one set of code down below (even if it gets converted back)
+				kwargs['condition'] = condition_rev_map[kwargs['condition']]
+
+			# check the part for explicit conditions
+			elif isinstance(newpart, dict):
+				_chained = False
+				for t in ['and','or','not']:
+					if t in newpart:
+						kwargs['with_explicit'] = t
+						self.chain( newpart, **kwargs )
+						_chained = True
+
+				# chained above should complete
+				if _chained:
+					return self
+			# else there are no new explicit conditions. If _explicit is set we
+			# will use the last value
+
+			# go ahead and parse the newpart. This way when adding to the explicit conditions
+			# vs non-explicit we won't have to parse it twice
+			# existing conditions in the dictionary will just get parsed recursively
+			_condition = 'must'
+			if kwargs.get('condition') in ['must','should','must_not']:
+				_condition = kwargs.get('condition')
+			elif isinstance(newpart, dict):
+				_chained = False
+				for lt in ['must','should','must_not']:
+					kwargs['condition'] = lt
+					self.chain( newpart[lt], **kwargs)
+					_chained = True
+				if _chained:
+					return self
+			# else treat the condition as 'must'
+
+			if self._expliict:
+				# check to see if we need to move existing bools inside an explicit condition
+				for btype, ttype in condition_map:
+					if self._filter.get(btype):
+						self._filter[ttype].extend( self._filter[btype] )
+
+						del self._filter[btype]
+				
+				# we definitely have explicit conditions. Turn the condition into the explicit
+				self._explicit = _condition = condition_map[_condition]
+				self[_condition].append(newpart)
+			else:
+				# chain the newpart to the toplevel bool
+				if _condition not in self._filter:
+					self._filter[_condition] = []
+
+				self._filter[_condition].append( newpart )
+		# queries are much simpler
+		else:
+			_condition = 'must'
+			if kwargs.get('condition') in ['must','should','must_not']:
+				_condition = kwargs.get('condition')
+			elif isinstance(newpart, dict):
+				_chained = False
+				for lt in ['must','should','must_not']:
+					kwargs['condition'] = lt
+					self.chain( newpart[lt], **kwargs)
+					_chained = True
+
+				if _chained:
+					return self
+			# else assume must
+
+			if _condition not in self._query:
+				self._query[_condition] = []
+
+			self._query[_condition].append( newpart )
+
+		return self
+
+	"""
 	def chain(self,newpart,**kwargs):
 		if kwargs.get('type') in ['filter','query']:
 			self._last_part = '_' + kwargs.get('type')
@@ -57,7 +169,6 @@ class QueryBody(object):
 							bool_args.append( cond_method( self._filter[t] ) )
 							self._filter[t] = []
 					
-					print "HERE"
 					self._filter[condition].append( qdsl.bool( *bool_args ) )
 
 				else:
@@ -76,19 +187,15 @@ class QueryBody(object):
 							raise ValueError( "Invalid condition '%s' provided to chain()" % condition )
 
 					if isinstance( newpart,list ):
-						print "FILTER LIST"
 						self._filter[condition].append( qdsl.terms( newpart ) )
 					else:
-						print "FILTER HERE %s" % condition
 						# should be a dictionary!
 						self._filter[condition].append( newpart )
 				elif self._last_part == '_query':
 					# now filters
 					if isinstance( newpart,list ):
-						print "QUERY LIST"
 						self._query[condition].append( qdsl.terms( newpart ) )
 					else:
-						print "QUERY REQUEST"
 						self._query[condition].append( newpart )
 				else:
 					raise ValueError( 'Arguments to chain() must contain a query or filter' )
@@ -112,6 +219,7 @@ class QueryBody(object):
 					self.chain( newpart, condition='must')
 
 		return self
+	"""
 
 	def is_filtered(self):
 		for t in ['must','should','must_not','and','or','not']:
@@ -143,15 +251,20 @@ class QueryBody(object):
 		_query = copy.deepcopy( self._query )
 		_filter = copy.deepcopy(self._filter )
 		
-		for t in ['must','should','must_not']:
+		for t in ['and', 'or','not', 'must','should','must_not']:
 			if len(_filter[t]) > 0:
 				is_filtered = True
 				f_type_count += 1
 				f_type = t
 				if len(_filter[t]) > 1:
 					filter_is_multi_condition = True
+				else:
+					_filter[t] = _filter[t][0] # if only one remove the list
 			else:
-				del _filter[t]
+				try:
+					del _filter[t]
+				except KeyError:
+					pass
 
 			if len(_query[t]) > 0:
 				is_query = True
@@ -162,7 +275,10 @@ class QueryBody(object):
 				else:
 					_query[t] = _query[t][0] # if only one remove the list
 			else:
-				del _query[t]
+				try:
+					del _query[t]
+				except KeyError:
+					pass
 
 		if f_type_count > 1:
 			filter_is_multi_condition = True
