@@ -58,6 +58,19 @@ class VWCollection(object):
 		self._last_top_level_boolean = None
 		self._last_boolean = None
 
+	# call backs. Override in the sub classes to implement
+	def before_search( self, querybody ):
+		pass
+
+	def after_search( self, results ):
+		pass
+
+	def before_object_create( self, raw_object ):
+		pass
+
+	def after_object_create( self, _vw_object ):
+		pass
+
 	def _create_obj_list(self,es_rows):
 		retlist = []
 		for doc in es_rows:
@@ -306,6 +319,8 @@ class VWCollection(object):
 		return _bool_condition
 
 	# builds query bodies
+	# Don't use this. Its bad. Use querybuilder instead
+	# this will be removed from a future version
 	def _build_body( self, **kwargs ):
 
 		exclusive = ['filter','query','constant_score_filter','constant_score_query']
