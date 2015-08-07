@@ -5,7 +5,7 @@ import json
 import types
 import copy
 import logging
-from . import config, qdsl
+from . import config, querybuilder, qdsl
 from .config import logger
 #from .config import es,dsn,default_index,bulk_chunk_size,results_per_page, logger
 from .es_types import *
@@ -28,6 +28,7 @@ class VWCollection(object):
 
 		self.results_per_page = kwargs.get('results_per_page', config.results_per_page)
 
+		self._querybody = querybuilder.QueryBody() # sets up the new query bodies
 
 		if kwargs.get('base_obj'):
 			self.base_obj = kwargs.get('base_obj')
@@ -84,7 +85,8 @@ class VWCollection(object):
 		if kwargs.get('condition'):
 			condition=kwargs.get('condition')
 			del kwargs['condition']
-
+		
+		condition = self._translate_bool_condition( condition )
 
 		for k,v in kwargs.iteritems():
 			if k == 'id' or k == 'ids':
@@ -92,39 +94,35 @@ class VWCollection(object):
 				if not isinstance(id_filter, list ):
 					id_filter = [id_filter]
 
-				self._build_body( filter={"ids": {"values": id_filter } }, condition=condition )
+				#self._build_body( filter={"ids": {"values": id_filter } }, condition=condition )
+				self._querybody.chain( qdsl.ids( id_filter ), condition=condition )
 			else:
 				try:
 					analyzed = is_analyzed( getattr(self.base_obj, k ) )
 				except AttributeError:
 					analyzed = is_analyzed( v )
+				
+				q_type = 'filter'
+				if analyzed:
+					q_type = 'query'
 
 				if isinstance(v, list):
 					# lists are treat as like "OR"
 					#search_value = " or ".join( [ unicode(vitem) for vitem in v] )
 					#search_value = "(" + search_value + ")"
-
-					filter_terms = []
-					for item in v:
-						if analyzed:
-							self._build_body(query={"match": { k: item } }, condition="should")
-						else:
-							filter_terms.append(item)
-
-
-					if filter_terms:
-						self._build_body(filter={"terms": {k: filter_terms}}, condition=condition )
+					self._querybody.chain( qdsl.terms(k,v),condition=condition, type=q_type )
 				else:
 					#search_value = unicode(v)
 					if analyzed:
-						self._build_body(query={"match": { unicode(k): v }}, condition=condition)
+						self._querybody.chain(qdsl.match( unicode(k), v ), condition=condition,type=q_type)
 					else:
-						self._build_body(filter={"term": { unicode(k): v }}, condition=condition)
+						self._querybody.chain(qdsl.term( unicode(k), v ), condition=condition,type=q_type)
 
 		return self
 
 	def multi_match(self, fields, query, **kwargs):
-		self._build_body(query={"multi_match": { "fields": fields, "query": query } }, condition=kwargs.get('condition', None))
+		#self._build_body(query={"multi_match": { "fields": fields, "query": query } }, condition=kwargs.get('condition', None))
+		self._querybody.chain( qdsl.multi_match( query, fields ), condition=kwargs.get('condition', None ), type='query' )
 		return self
 
 	def exact( self, field, value,**kwargs ):
@@ -141,10 +139,14 @@ class VWCollection(object):
 		except AttributeError:
 			logger.warn( str(field) + ' is not in the base model.' )
 
+		kwargs['type'] = 'filter'
 		if isinstance(value, list):
-			self._build_body( filter={"terms": { field: value } }, **kwargs )
+			#self._build_body( filter={"terms": { field: value } }, **kwargs )
+
+			self._querybody.chain( qdsl.terms( field,value ), **kwargs )
 		else:
-			self._build_body( filter={"term": { field: value } }, **kwargs )
+			#self._build_body( filter={"term": { field: value } }, **kwargs )
+			self._querybody.chain(qdsl.term( field, value ), **kwargs )
 
 		return self
 
@@ -155,26 +157,34 @@ class VWCollection(object):
 	def and_(self,*args):
 		return ' AND '.join(args)
 
-	def get(self,id):
+	def get(self,id, **kwargs):
 		try:
-			return self._create_obj( self._es.get(index=self.idx,doc_type=self.type,id=id) )
+			params = dict(index=self.idx, doc_type=self.type, id=id)
+			params.update(kwargs)
+			return self._create_obj( self._es.get(**params) )
 		except:
 			return None
 
 	def refresh(self, **kwargs):
 		self._esc.refresh(index=self.idx, **kwargs)
 
-	def get_in(self, ids):
+	def get_in(self, ids,**kwargs):
 
 		if len(ids) > 0: # check for ids. empty list returns an empty list (instead of exception)
-			res = self._es.mget(index=self.idx,doc_type=self.type,body={'ids':ids})
+			params = dict( index=self.idx, doc_type=self.type, body={'ids':ids})
+			params.update(kwargs);
+			res = self._es.mget(**params)
 			if res and res.get('docs'):
 				return self._create_obj_list( res.get('docs') )
 
 		return []
 
-	def get_like_this(self,doc_id):
-		res = self._es.mlt(index=self.idx,doc_type=self.type,id=doc_id )
+	def get_like_this(self,doc_id,**kwargs):
+		
+		params = dict(index=self.idx,doc_type=self.type,id=doc_id )
+		params.update(kwargs)
+		res = self._es.mlt(**params)
+
 		if res and res.get('docs'):
 			return self._create_obj_list( res.get('docs') )
 		else:
@@ -193,6 +203,7 @@ class VWCollection(object):
 		self._raw = {}
 		self._search_params = []
 		self._special_body = {}
+		self._querybody = querybuilder.QueryBody()
 
 	def _create_search_params( self, **kwargs ):
 		q = {
@@ -203,24 +214,26 @@ class VWCollection(object):
 		if self._raw:
 			q['body'] = self._raw
 		elif len(self._search_params) > 0:
-			q['body'] = self._build_body(query=qdsl.query_string( self.and_(*self._search_params), **kwargs) )
+			kwargs['type'] = 'query'
+			#q['body'] = self._build_body(query=qdsl.query_string( self.and_(*self._search_params), **kwargs) )
+			self._querybody.chain( qdsl.query_string( self.and_(*self._search_params)), **kwargs)
 		else:
-			q['body'] = {'query':{'match_all':{} } }
+			q['body'] = qdsl.query( qdsl.match_all() )
 
-
-		# this is the newer search by QDSL
+		# depricated
 		if self._special_body:
 			q['body'] = self._special_body
 
+		if self._querybody.is_filtered() or self._querybody.is_query():
+			q['body'] = self._querybody.build()
+
 		logger.debug(json.dumps(q))
 		return q
-
 
 	def count(self):
 		params = self._create_search_params()
 		resp = self._es.count(**params)
 		return resp.get('count')
-
 
 	def __len__(self):
 		return self.count()
@@ -272,6 +285,25 @@ class VWCollection(object):
 			return results[0]
 		except IndexError:
 			raise NoResultsFound('No result found for one()')
+
+	# this is for legacy purposes in filter_by
+	def _translate_bool_condition(self,_bool_condition):
+		if _bool_condition == 'and':
+			_bool_condition = 'must'
+		elif _bool_condition == 'or':
+			_bool_condition = 'should'
+		elif _bool_condition == 'not':
+			_bool_condition = 'must_not'
+
+		# this is for things like geo_distance where we explicitly want the true and/or/not
+		elif _bool_condition == 'explicit_and':
+			_bool_condition = 'and'
+		elif _bool_condition == 'explicit_or':
+			_bool_condition = 'or'
+		elif _bool_condition == 'explicit_not':
+			_bool_condition = 'not'
+
+		return _bool_condition
 
 	# builds query bodies
 	def _build_body( self, **kwargs ):
@@ -523,58 +555,53 @@ class VWCollection(object):
 
 	def range(self, field, **kwargs):
 
+
 		search_options = {}
-		for opt in ['condition','minimum_should_match','with_explicit']:
+		for opt in ['condition','minimum_should_match']:
 			if opt in kwargs:
 				search_options[opt] = kwargs.get(opt)
 				del kwargs[opt]
 
-		q = {'range': { field: kwargs } }
-		if self._special_body_is_filtered():
+		q = qdsl.range( field, **kwargs )
+		if self._querybody.is_filtered():
 			d = {'filter': q }
 		else:
 			d = {'query': q }
 
-
 		if search_options:
 			d.update(search_options)
 
-		self._build_body(**d)
+		#self._build_body(**d)
+		self._querybody.chain(d)
 
 		return self
 
 	def search_geo(self, field, distance, lat, lon,**kwargs):
 
-		condition = kwargs.get('condition', 'explicit_and')
+		condition = kwargs.get('condition', 'and')
 		if 'condition' in kwargs:
 			del kwargs['condition']
 
-
-		if condition == 'and':
-			condition = 'explicit_and'
-		elif condition == 'or':
-			condition = 'explicit_or'
-		elif condition == 'not':
-			condition = 'explicit_not'
-
-		self._build_body( filter={"geo_distance": { "distance": distance, field: [lon,lat] } }, condition='explicit_and', **kwargs )
+		#self._build_body( filter={"geo_distance": { "distance": distance, field: [lon,lat] } }, condition='explicit_and', **kwargs )
+		self._querybody.chain( qdsl.filter_( qdsl.geo_distance( field, [lon,lat], distance, **kwargs ) ), condition=condition )
 		return self
 
 	def missing( self, field, **kwargs):
-		kwargs['filter'] = {"missing":{"field": field } }
-		self._build_body( **kwargs )
+		#kwargs['filter'] = {"missing":{"field": field } }
+		#self._build_body( **kwargs )
+		self._querybody.chain( qdsl.filter( qdsl.missing( field ) ) )
 		return self
 
 	def exists( self, field, **kwargs):
-		kwargs['filter'] = {"exists": { "field": field } }
-		self._build_body( **kwargs )
+		#kwargs['filter'] = {"exists": { "field": field } }
+		#self._build_body( **kwargs )
+		self._querybody.chain( qdsl.filter( qdsl.exists( field, **kwargs ) ) )
 		return self
 
 	def delete(self, **kwargs):
 		params = self._create_search_params()
 		params.update(kwargs)
 		self._es.delete_by_query( **params )
-
 
 	def delete_in(self, ids):
 		if not isinstance(ids, list):
