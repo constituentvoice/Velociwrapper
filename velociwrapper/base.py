@@ -11,13 +11,38 @@ from .config import logger
 import elasticsearch
 from .relationship import relationship
 from .es_types import * # yeah yeah I know its "bad"
-from .callbacks import execute_callbacks
 from traceback import format_exc
 
 class ObjectDeletedError(Exception):
 	pass
 
-class VWBase(object):
+# Implements callbacks across objects
+class VWCallback(object):
+	callbacks = {}
+	
+	@classmethod
+	def register_callback( cls, cbtype, callback ):
+		if cls.__name__ not in cls.callbacks:
+			cls.callbacks[cls.__name__] = {}
+
+		if cbtype not in cls.callbacks[cls.__name__]:
+			cls.callbacks[cls.__name__][cbtype] = []
+		
+		if not callable(callback):
+			raise ValueError( 'parameter 2 to register_callback() must be callable' )
+
+		cls.callbacks[cls.__name__][cbtype].append( callback )
+
+	def execute_callbacks( self, cbtype, argument=None, **kwargs ):
+		try:
+			for cb in self.callbacks[self.__class__.__name__][cbtype]:
+				argument = cb( self, argument, **kwargs )
+		except KeyError:
+			pass # no callbacks by this name. 
+
+		return argument
+
+class VWBase(VWCallback):
 	# connects to ES
 	_watch = False
 	_needs_update = False
@@ -39,7 +64,7 @@ class VWBase(object):
 			self._set_by_query = True
 		else:
 			self._new = True
-			execute_callbacks('before_manual_create_object', self )
+			self.execute_callbacks('before_manual_create_object')
 
 		self._needs_update = False
 		self._watch = True
@@ -71,7 +96,7 @@ class VWBase(object):
 		self._set_by_query = False
 		self._no_ex = False
 		if self._new:
-			execute_callbacks('after_manual_create_object', self )
+			self.execute_callbacks('after_manual_create_object')
 	
 	# customizations for pickling
 	def __getstate__(self):
@@ -308,10 +333,10 @@ class VWBase(object):
 
 
 		if self._deleted and self.id:
-			execute_callbacks('on_delete', self )
+			self.execute_callbacks('on_delete')
 			self._es.delete(id=self.id,index=self.__index__,doc_type=self.__type__)
 		else:
-			execute_callbacks('before_commit', self )
+			self.execute_callbacks('before_commit')
 			idx = self.__index__
 			doc_type = self.__type__
 
@@ -327,13 +352,13 @@ class VWBase(object):
 
 			res = self._es.index(index=idx,doc_type=doc_type,id=self.id,body=doc)
 			self._watch = True
-			execute_callbacks('after_commit', self )
+			self.execute_callbacks('after_commit')
 
 
 	def sync(self):
 		if self.id:
 			try:
-				execute_callbacks('before_sync', self )
+				self.execute_callbacks('before_sync')
 				res = self._es.get(id=self.id,index=self.__index__)
 				#for k,v in res.get('_source').iteritems():
 				#	if self.__class__.__dict__.get(k) and ( isinstance( self.__class__.__dict__.get(k), date ) or isinstance( self.__class__.__dict__.get(k), datetime ) ):
@@ -346,7 +371,7 @@ class VWBase(object):
 				self._document = res.get('_source')
 
 				self._new = False
-				execute_callbacks('after_sync', self )
+				self.execute_callbacks('after_sync')
 
 			except NotFoundError:
 				# not found in elastic search means we should treat as new

@@ -9,8 +9,7 @@ from . import config, querybuilder, qdsl
 from .config import logger
 #from .config import es,dsn,default_index,bulk_chunk_size,results_per_page, logger
 from .es_types import *
-from .base import VWBase
-from .callbacks import execute_callbacks
+from .base import VWBase,VWCallback
 
 # Raised when no results are found for one()
 class NoResultsFound(Exception):
@@ -20,7 +19,7 @@ class NoResultsFound(Exception):
 class MalformedBodyError(Exception):
 	pass
 
-class VWCollection(object):
+class VWCollection(VWCallback):
 	def __init__(self,items=[],**kwargs):
 
 		self.bulk_chunk_size = kwargs.get('bulk_chunk_size', config.bulk_chunk_size)
@@ -58,14 +57,6 @@ class VWCollection(object):
 		# options should exist. Defaults to and/must
 		self._last_top_level_boolean = None
 		self._last_boolean = None
-
-	def _create_obj(self,doc):
-		# execute callbacks
-		src = doc.get('_source')
-		src['_set_by_query'] = True
-		src['id'] = doc.get('_id')
-
-		return self.after_object_create( self.base_obj(**src) )
 
 	def search(self,q):
 		self._search_params.append(q)
@@ -209,7 +200,7 @@ class VWCollection(object):
 	def _create_search_params( self, **kwargs ):
 		
 		# before_query_build() is allowed to manipulate the object's internal state before we do the do
-		self._querybody = execute_callbacks('before_query_build', self._querybody )
+		self._querybody = self.execute_callbacks('before_query_build', self._querybody )
 
 		q = {
 			'index': self.idx,
@@ -230,7 +221,7 @@ class VWCollection(object):
 
 		# after_query_build() can manipulate the final query before being sent to ES
 		# this is generally considered a bad idea but might be useful for logging
-		q = execute_callbacks( 'after_query_build', q )
+		q = self.execute_callbacks( 'after_query_build', q )
 
 		logger.debug(json.dumps(q))
 		return q
@@ -397,7 +388,7 @@ class VWCollection(object):
 			if callback:
 				i = callback(i)
 
-			i = execute_callbacks('on_bulk_commit', i )
+			i = self.execute_callbacks('on_bulk_commit', i )
 
 			this_dict = {}
 			this_id = ''
@@ -426,7 +417,7 @@ class VWCollection(object):
 
 		return helpers.bulk(self._es,bulk_docs,chunk_size=self.bulk_chunk_size)
 
-class VWCollectionGen(object):
+class VWCollectionGen(VWCallback):
 	def __init__(self, base_obj, es_results):
 		self.es_results = es_results
 		
@@ -457,13 +448,13 @@ class VWCollectionGen(object):
 		return self._create_obj(doc)
 
 	def _create_obj(self,doc):
-		doc = execute_callbacks( 'before_auto_create_object', doc )
+		doc = self.base_obj.execute_callbacks( self.base_obj(), 'before_auto_create_object', doc )
 		
 		src = doc.get('_source')
 		src['_set_by_query'] = True
 		src['id'] = doc.get('_id')
 
-		return execute_callbacks( 'after_auto_create_object', self.base_obj(**src) )
+		return self.base_obj.execute_callbacks( self.base_obj(), 'after_auto_create_object', self.base_obj(**src) )
 
 	# python abuse! 
 	# seriously though we want to act like a list in many cases
