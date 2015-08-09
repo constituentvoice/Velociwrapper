@@ -334,14 +334,14 @@ custom output.
 
 **more_like_this** *()*
 
-Performs a search to get documents that are "like" the current document. Returns a list.
+Performs a search to get documents that are "like" the current document. Returns a VWCollectionGen.
 
 ----
 
 Collections
 ------------
 
-Collections are used to search and return lists of models. Searches can be chained together to create complex queries of Elasticsearch
+Collections are used to search and return collections of models. Searches can be chained together to create complex queries of Elasticsearch
 (much like SQLAlchemy). Currently collections are of one document type only. This may change in a future release.
 
 Example:
@@ -364,8 +364,7 @@ By default chained criteria are joined with "AND" ("must" in most cases internal
 	# users who live in texas or are named john:
 	users = Users().filter_by(name='John', state='TX', condition='or').all()
 
-	# same as above
-	users = Users().filter_by(name='John').filter_by(state='TX', condition='or').all()
+For more complex queries see the ``raw()`` method and the QDSL module.
 
 **Creating Collections**
 
@@ -414,7 +413,7 @@ Examples:
 	# (john or stacy) and state
 	users = Users().filter_by(name='John').filter_by(name='Stacy', condition='or').filter_by(state='TX',condition='and').all()
 
-Obviously order matters. For more complex queries the other option is to use the ``raw()`` functionality (see below)
+Obviously order matters. For more complex queries the other option is to use the ``raw()`` method and the QDSL module (see below)
 
 **API**
 
@@ -428,7 +427,7 @@ but can also be specified by keyword arguments.
 
 If no search has been specified, Velociwrapper will call ``match_all``.
 
-If not results matched ``all()`` returns an empty list.
+If no results are matched ``all()`` returns an empty VWCollectionGen.
 
 Arguments:
 
@@ -443,12 +442,14 @@ Generally its better to create a new object.
 
 **commit** *([callback=callable])*
 
-Bulk commits a list of items specified on ``__init__()``. Future incarnations will execute any existing search and act on the results.
+Bulk commits a list of items specified on ``__init__()`` or if no items were specified will bulk commit against the items matched in the current search. (be careful! Calling something like Users().commit() will commit all users!)
 
 The ``callback`` argument should be a callable. The raw item will be passed to it and it must return either a ``dict`` or a ``VWBase`` 
 (model) object.  Note that velociwrapper does not call each model's ``commit()`` or ``to_dict()`` methods but rather issues the request
 in bulk. Thus you cannot affect the behavior by overriding these methods. Use the ``callback`` to make changes or change the items before
 passing them to the collection.
+
+As of 2.0 it is also possible to register a callback to manipulate items in the commit. See "Callbacks".
 
 **count** *()*
 
@@ -456,7 +457,7 @@ Returns the total number of documents matched (not that will be returned!) by th
 
 **delete** *(\*\*kwargs)*
 
-Delete the records specified by the search query. (this is unlike commit() which only commits records the collection was created with!)
+Delete the records specified by the search query.
 
 **delete_in** *(ids=list)*
 
@@ -576,7 +577,7 @@ Execute a raw Query DSL query.  Chainable but all other search filters are ignor
 
 ***search** *(query=string)*
 
-Execute a Lucene query against the server. Chainable but chaining with Query DSL filters may produce unexpected results.
+Execute a Lucene query against the server. Chainable.
 
 **search_geo** *(field=str,distance=float,lat=float,lon=float,\*\*kwargs)*
 
@@ -638,7 +639,15 @@ Keyword arguments
 Output the index mapping for a VWBase class.
 
 ----
+Callbacks
+---------
 
+
+----
+QDSL
+----
+
+----
 AUTHOR
 ------
 
@@ -649,6 +658,6 @@ Chris Brown, Drew Goin and Boyd Hitt
 COPYRIGHT
 ---------
 
-Copyright (c) 2014 Constituent Voice LLC
+Copyright (c) 2015 Constituent Voice LLC
 
 
