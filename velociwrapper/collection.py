@@ -10,6 +10,7 @@ from .config import logger
 #from .config import es,dsn,default_index,bulk_chunk_size,results_per_page, logger
 from .es_types import *
 from .base import VWBase
+from .callbacks import execute_callbacks
 
 # Raised when no results are found for one()
 class NoResultsFound(Exception):
@@ -58,32 +59,13 @@ class VWCollection(object):
 		self._last_top_level_boolean = None
 		self._last_boolean = None
 
-	# call backs. Override in the sub classes to implement
-	def before_search( self, querybody ):
-		pass
-
-	def after_search( self, results ):
-		pass
-
-	def before_object_create( self, raw_object ):
-		pass
-
-	def after_object_create( self, _vw_object ):
-		pass
-
-	def _create_obj_list(self,es_rows):
-		retlist = []
-		for doc in es_rows:
-			if doc.get('_source'):
-				retlist.append( self._create_obj(doc) )
-
-		return retlist
-
 	def _create_obj(self,doc):
+		# execute callbacks
 		src = doc.get('_source')
 		src['_set_by_query'] = True
 		src['id'] = doc.get('_id')
-		return self.base_obj(**src)
+
+		return self.after_object_create( self.base_obj(**src) )
 
 	def search(self,q):
 		self._search_params.append(q)
@@ -174,7 +156,13 @@ class VWCollection(object):
 		try:
 			params = dict(index=self.idx, doc_type=self.type, id=id)
 			params.update(kwargs)
-			return self._create_obj( self._es.get(**params) )
+			#return self._create_obj( self._es.get(**params) )
+			doc = self._es.get(**params)
+			if doc:
+				return VWCollectionGen(self.base_obj, {'docs':[ doc ] } )[0]
+
+			return None
+
 		except:
 			return None
 
@@ -188,7 +176,7 @@ class VWCollection(object):
 			params.update(kwargs);
 			res = self._es.mget(**params)
 			if res and res.get('docs'):
-				return self._create_obj_list( res.get('docs') )
+				return VWCollectionGen(self.base_obj, res)
 
 		return []
 
@@ -199,7 +187,7 @@ class VWCollection(object):
 		res = self._es.mlt(**params)
 
 		if res and res.get('docs'):
-			return self._create_obj_list( res.get('docs') )
+			return VWCollectionGen(self.base_obj, res )
 		else:
 			return []
 
@@ -219,6 +207,10 @@ class VWCollection(object):
 		self._querybody = querybuilder.QueryBody()
 
 	def _create_search_params( self, **kwargs ):
+		
+		# before_query_build() is allowed to manipulate the object's internal state before we do the do
+		self._querybody = execute_callbacks('before_query_build', self._querybody )
+
 		q = {
 			'index': self.idx,
 			'doc_type': self.type
@@ -233,12 +225,12 @@ class VWCollection(object):
 		else:
 			q['body'] = qdsl.query( qdsl.match_all() )
 
-		# depricated
-		if self._special_body:
-			q['body'] = self._special_body
-
 		if self._querybody.is_filtered() or self._querybody.is_query():
 			q['body'] = self._querybody.build()
+
+		# after_query_build() can manipulate the final query before being sent to ES
+		# this is generally considered a bad idea but might be useful for logging
+		q = execute_callbacks( 'after_query_build', q )
 
 		logger.debug(json.dumps(q))
 		return q
@@ -288,7 +280,6 @@ class VWCollection(object):
 		results = self._es.search( **params )
 		#rows = results.get('hits').get('hits')
 
-		#return self._create_obj_list( rows )
 		return VWCollectionGen( self.base_obj,results )
 
 	def one(self,**kwargs):
@@ -318,259 +309,7 @@ class VWCollection(object):
 
 		return _bool_condition
 
-	# builds query bodies
-	# Don't use this. Its bad. Use querybuilder instead
-	# this will be removed from a future version
-	def _build_body( self, **kwargs ):
-
-		exclusive = ['filter','query','constant_score_filter','constant_score_query']
-
-		excount = 0
-		for k,v in kwargs.iteritems():
-			if k in exclusive:
-				excount += 1
-				if excount > 1:
-					raise KeyError( '_build_body() can only accept one of "filter", "query", "constant_score_filter", or "constant_score_query"' )
-
-		_bool_condition = kwargs.get('condition')
-
-		bool_set_default = False
-		if not _bool_condition:
-			if self._last_boolean:
-				_bool_condition = self._last_boolean
-			else:
-				_bool_condition = 'must'
-				bool_set_default = True
-
-		try:
-			del kwargs['condition']
-		except KeyError:
-			pass
-
-		# translate standard booleans
-		# and = must
-		# not = must_not
-		# or = should with minimum_should_match=1 (1 is default. You can still set it)
-
-
-		if _bool_condition == 'and':
-			_bool_condition = 'must'
-		elif _bool_condition == 'or':
-			_bool_condition = 'should'
-		elif _bool_condition == 'not':
-			_bool_condition = 'must_not'
-
-		# this is for things like geo_distance where we explicitly want the true and/or/not
-		elif _bool_condition == 'explicit_and':
-			_bool_condition = 'and'
-		elif _bool_condition == 'explicit_or':
-			_bool_condition = 'or'
-		elif _bool_condition == 'explicit_not':
-			_bool_condition = 'not'
-
-		_minimum_should_match = 1
-		if kwargs.get('minimum_should_match'):
-			_minimum_should_match = kwargs.get('minimum_should_match')
-			del kwargs['minimum_should_match']
-
-		_with_explicit = None
-		if kwargs.get('with_explicit'):
-			_with_explicit = kwargs.get('with_explicit').lower()
-			del kwargs['with_explicit']
-
-		if not self._special_body:
-			self._special_body = { "query": {} }
-
-		# filters can be constant score or filtered at the top level. The wrapper makes a bunch more sense
-		filtered_type = 'filtered'
-		set_query = kwargs.get('query')
-		set_filter = kwargs.get('filter')
-		if kwargs.get('constant_score_filter') or kwargs.get('constant_score_query'):
-			filtered_type = 'constant_score'
-
-			if kwargs.get('constant_score_filter'):
-				set_filter = kwargs.get('constant_score_filter')
-			elif kwargs.get('constant_score_query'):
-				set_query = kwargs.get('constant_score_query')
-
-			# have to automatically change the system to a constant score from filtered
-			if 'filtered' in self._special_body.get('query'):
-				filters = copy.deepcopy(self._special_body.get('query').get('filtered'))
-				del self._special_body['query']['filtered']
-				self._special_body['query']['constant_score'] = filters
-			elif 'constant_score' not in self._special_body.get('query'):
-				self._special_body['query']['constant_score'] = {}
-
-		elif 'constant_score' in self._special_body.get('query'):
-			filtered_type = 'constant_score'
-
-
-		if set_filter:
-			if filtered_type not in self._special_body.get('query'):
-				current_q = None
-				if self._special_body.get('query'):
-					current_q = copy.deepcopy(self._special_body.get('query'))
-					self._special_body = {'query': {filtered_type: {} } }
-				self._special_body['query'][filtered_type] = { 'filter':{}  }
-
-				if current_q:
-					self._special_body['query'][filtered_type]['query'] = current_q
-
-			# do we have any top level and/or/not filters already specified?
-			_filter = self._special_body.get('query').get(filtered_type).get('filter')
-			try:
-				has_conditions = next( cond for cond in ['and','or','not'] if cond in _filter )
-			except StopIteration:
-				has_conditions = None
-
-			if has_conditions:
-
-				if _bool_condition in ['and','or','not']:
-					if _bool_condition in _filter:
-						if _filter[_bool_condition]:
-							if not isinstance(_filter.get(_bool_condition, list) ):
-								self._special_body['query'][filtered_type]['filter'][_bool_condition] = [_filter[_bool_condition]]
-
-							self._special_body['query'][filtered_type]['filter'][_bool_condition].append( set_filter )
-							_filter = self._special_body['query'][filtered_type]['filter']
-
-					elif _filter:
-						self._special_body['query'][filtered_type]['filter'] = { _bool_condition: [_filter] }
-						_filter = self._special_body.get('query').get(filtered_type).get('filter')
-						_filter.append( set_filter )
-
-					else:
-						self._special_body['query'][filtered_type]['filter'] = set_filter
-
-					self._last_top_level_boolean = _bool_condition # for subsequent calls
-
-				else:
-					# we have to find the bool
-
-					# if we have top level conditions then bool must appear inside one of them
-					# 1. Try to use the specified position with_explicit=value. If it doesn't exist then fall through (and warn)
-					# 2. Use the last precidence specified (if it was specified)
-					# 3. try in the order of AND, OR, NOT
-					# 4. If none have bools, add the bool to the first condition that exists (in the order of 'and','or','not') (using has_conditions whcih will be set to teh appropriate value)
-
-					set_on_condition = False
-					if _with_explicit and _filter.get(_with_explicit):
-						set_on_condition = _with_explicit
-
-						# set the top level bool to the explicit setting
-						self._last_top_level_boolean = _with_explicit
-
-					elif self._last_top_level_boolean and _filter.get(_last_top_level_boolean):
-						set_on_condition = _last_top_level_boolean
-					else:
-						try:
-							set_on_condition = next( cond for cond in ['and','or','not'] if _filter.get(cond) and _filter.get(cond).get('bool') )
-						except StopIteration:
-							set_on_condition = False
-
-					# if its still not set:
-					if not set_on_condition:
-						set_on_condition = has_conditions # has_conditions will be set to the first existing condition in order of ops
-
-					if set_on_condition in _filter:
-						if _filter.get( set_on_condition ).get('bool'):
-							if _filter.get(set_on_condition).get('bool').get(_bool_condition):
-								if isinstance(_filter.get(set_on_condition).get('bool').get(_bool_condition), list):
-									_filter.get(set_on_condition).get('bool').get(_bool_condition).append(set_filter)
-								else:
-									current_filter = copy.deepcopy(_filter.get(set_on_condition).get('bool').get(_bool_condition))
-									self._special_body['query'][filtered_type]['filter']['bool'][_bool_condition] = [current_filter, set_filter]
-									_filter = self._special_body['query'][filtered_type]['filter']
-							else:
-								_filter.get(set_on_condition).get('bool')[_bool_condition] = set_filter
-
-
-						else:
-							current_filter = copy.deepcopy(_filter.get(set_on_condition))
-							self._special_body['query'][filtered_type]['filter'][set_on_condition] = {'bool': { _bool_condition: current_filter } }
-							_filter = self._special_body['query'][filtered_type]['filter']
-
-							_filter[set_on_condition]['bool'][_bool_condition] = set_filter
-
-						if 'bool' in _filter[set_on_condition]:
-							if _minimum_should_match != 1:
-								_filter[set_on_condition]['bool']['minimum_should_match'] = _minimum_should_match
-
-							if kwargs.get('boost'):
-								_filter[set_on_condition]['bool']['boost'] = kwargs.get('boost')
-					else:
-						# this should never happen
-						raise MalformedBodyError
-
-
-			else:
-				# this is a normal boolean request
-				if _filter.get('bool'):
-					if _filter.get('bool').get(_bool_condition):
-						if isinstance(_filter.get('bool').get(_bool_condition), list ):
-							_filter.get('bool').get(_bool_condition).append( set_filter )
-						else:
-							current_filter = copy.deepcopy(_filter.get('bool').get(_bool_condition))
-							self._special_body['query'][filtered_type]['filter']['bool'][_bool_condition] = [current_filter, set_filter]
-					else:
-						_filter['bool'][_bool_condition] = set_filter
-
-				elif _filter:
-					current_filter = copy.deepcopy(_filter)
-					self._special_body['query'][filtered_type]['filter'] = {'bool': { _bool_condition: [current_filter, set_filter] } }
-					_filter = self._special_body['query'][filtered_type]['filter']
-				else:
-					self._special_body['query'][filtered_type]['filter'] = set_filter
-					_filter = self._special_body['query'][filtered_type]['filter']
-
-
-				if 'bool' in _filter:
-					if _minimum_should_match != 1:
-						_filter['bool']['minimum_should_match'] = _minimum_should_match
-
-					if kwargs.get('boost'):
-						_filter['bool']['boost'] = kwargs.get('boost')
-
-
-		elif set_query:
-			if filtered_type in self._special_body.get('query'):
-				query = self._special_body.get('query').get(filtered_type)
-			else:
-				query = self._special_body
-
-			if query.get('query'):
-				if 'bool' in query.get('query'):
-					if _bool_condition in query.get('query').get('bool'):
-						if isinstance(query.get('query').get('bool').get(_bool_condition), list):
-							query.get('query').get('bool').get(_bool_condition).append( kwargs.get('query') )
-						else:
-							current_q = copy.deepcopy(query.get('query').get('bool').get(_bool_condition))
-
-							query['query']['bool'][_bool_conditon] = [current_q, kwargs.get('query')]
-					else:
-						query['query']['bool'][_bool_condition] = set_filter
-
-				else:
-					current_q = copy.deepcopy(query['query'])
-					query['query'] = {'bool': { _bool_condition: [current_q, kwargs.get('query')] } }
-
-			else:
-				query['query'] = kwargs.get('query')
-
-			if 'bool' in query.get('query'):
-				if _minimum_should_match != 1:
-					query['query']['bool']['minimum_should_match'] = _minimum_should_match
-
-				if kwargs.get('boost'):
-					query['query']['bool']['boost'] = kwargs.get('boost')
-
-
-	def _special_body_is_filtered(self):
-		return (self._special_body and self._special_body.get('query') and ('filtered' in self._special_body.get('query') or 'constant_score' in self._special_body.get('query') ) )
-
 	def range(self, field, **kwargs):
-
-
 		search_options = {}
 		for opt in ['condition','minimum_should_match']:
 			if opt in kwargs:
@@ -643,13 +382,22 @@ class VWCollection(object):
 	def commit(self, callback=None):
 		bulk_docs = []
 
+		# depreicated. Use register_callback('on_bulk_commit', callback )
 		if callback:
 			if not callable(callback):
 				raise TypeError('Argument 2 to commit() must be callable')
+		
+		# allow for a search to work if there are not _items
+		if len(self._items) == 0:
+			items = self.all()
+		else:
+			items = self._items
 
 		for i in self._items:
 			if callback:
 				i = callback(i)
+
+			i = execute_callbacks('on_bulk_commit', i )
 
 			this_dict = {}
 			this_id = ''
@@ -681,6 +429,15 @@ class VWCollection(object):
 class VWCollectionGen(object):
 	def __init__(self, base_obj, es_results):
 		self.es_results = es_results
+		
+		try:
+			self.doc_list = self.es_results['docs']
+		except KeyError:
+			try:
+				self.doc_list = self.es_results['hits']['hits']
+			except KeyError:
+				raise ValueError( 'Results passed do not appear to be valid ElasticSearch results.' )
+
 		self.count = 0
 		self.base_obj = base_obj
 
@@ -693,25 +450,28 @@ class VWCollectionGen(object):
 
 	def next(self):
 		self.count += 1
-		if self.count > len( self.es_results.get('hits').get('hits') ):
+		if self.count > len( self.doc_list ):
 			raise StopIteration
 
-		doc = self.es_results.get('hits').get('hits')[self.count - 1]
+		doc = self.doc_list[self.count - 1]
 		return self._create_obj(doc)
 
 	def _create_obj(self,doc):
+		doc = execute_callbacks( 'before_auto_create_object', doc )
+		
 		src = doc.get('_source')
 		src['_set_by_query'] = True
 		src['id'] = doc.get('_id')
-		return self.base_obj(**src)
+
+		return execute_callbacks( 'after_auto_create_object', self.base_obj(**src) )
 
 	# python abuse! 
 	# seriously though we want to act like a list in many cases
 	def __getitem__(self,idx):
-		return self._create_obj(self.es_results.get('hits').get('hits')[idx] )
+		return self._create_obj(self.doc_list[idx] )
 
 	def __len__(self):
-		return len( self.es_results.get('hits').get('hits') )
+		return len( self.doc_list )
 
 	def results(self):
 		return self.es_results

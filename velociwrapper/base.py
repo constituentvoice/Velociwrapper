@@ -11,6 +11,7 @@ from .config import logger
 import elasticsearch
 from .relationship import relationship
 from .es_types import * # yeah yeah I know its "bad"
+from .callbacks import execute_callbacks
 from traceback import format_exc
 
 class ObjectDeletedError(Exception):
@@ -38,6 +39,7 @@ class VWBase(object):
 			self._set_by_query = True
 		else:
 			self._new = True
+			execute_callbacks('before_manual_create_object', self )
 
 		self._needs_update = False
 		self._watch = True
@@ -68,6 +70,8 @@ class VWBase(object):
 		# make sure we're ready for changes
 		self._set_by_query = False
 		self._no_ex = False
+		if self._new:
+			execute_callbacks('after_manual_create_object', self )
 	
 	# customizations for pickling
 	def __getstate__(self):
@@ -302,9 +306,12 @@ class VWBase(object):
 	def commit(self):
 		# save in the db
 
+
 		if self._deleted and self.id:
+			execute_callbacks('on_delete', self )
 			self._es.delete(id=self.id,index=self.__index__,doc_type=self.__type__)
 		else:
+			execute_callbacks('before_commit', self )
 			idx = self.__index__
 			doc_type = self.__type__
 
@@ -320,11 +327,13 @@ class VWBase(object):
 
 			res = self._es.index(index=idx,doc_type=doc_type,id=self.id,body=doc)
 			self._watch = True
+			execute_callbacks('after_commit', self )
 
 
 	def sync(self):
 		if self.id:
 			try:
+				execute_callbacks('before_sync', self )
 				res = self._es.get(id=self.id,index=self.__index__)
 				#for k,v in res.get('_source').iteritems():
 				#	if self.__class__.__dict__.get(k) and ( isinstance( self.__class__.__dict__.get(k), date ) or isinstance( self.__class__.__dict__.get(k), datetime ) ):
@@ -337,6 +346,7 @@ class VWBase(object):
 				self._document = res.get('_source')
 
 				self._new = False
+				execute_callbacks('after_sync', self )
 
 			except NotFoundError:
 				# not found in elastic search means we should treat as new
@@ -356,19 +366,6 @@ class VWBase(object):
 
 	def _create_source_document(self, **kwargs):
 		output = self._document
-
-		#date_format = kwargs.get('date_format','%Y-%m-%d')
-		#datetime_format = kwargs.get('datetime_format','%Y-%m-%dT%H:%M:%S')
-		#for k,v in self._document.iteritems():
-		#	if k[0] != '_':
-		#		if isinstance(v,datetime):
-		#			# output[k] = v.isoformat()
-		#			output[k] = v.strftime(datetime_format)
-		#		elif isinstance(v,date):
-		#			output[k] = v.strftime(date_format)
-		#		else:
-		#			output[k] = v
-
 		return output
 
 	def more_like_this(self,**kwargs):
