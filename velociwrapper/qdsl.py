@@ -25,6 +25,10 @@ def multi_match( query, fields, **kwargs):
 
 def bool(*args, **kwargs):
 	output = kwargs.get('__vw_set_current', {"bool": {} })
+	try:
+		del kwargs['__vw_set_current']
+	except KeyError:
+		pass
 	
 	if len(args) == 1 and isinstance(args[0], dict):
 		output['bool'] = args[0]

@@ -447,13 +447,13 @@ class VWCollectionGen(VWCallback):
 		return self._create_obj(doc)
 
 	def _create_obj(self,doc):
-		doc = self.base_obj.execute_callbacks( self.base_obj(), 'before_auto_create_object', doc )
+		doc = self.base_obj.execute_callbacks( self.base_obj(), 'before_auto_create_model', doc )
 		
 		src = doc.get('_source')
 		src['_set_by_query'] = True
 		src['id'] = doc.get('_id')
 
-		return self.base_obj.execute_callbacks( self.base_obj(), 'after_auto_create_object', self.base_obj(**src) )
+		return self.base_obj.execute_callbacks( self.base_obj(), 'after_auto_create_model', self.base_obj(**src) )
 
 	# python abuse! 
 	# seriously though we want to act like a list in many cases

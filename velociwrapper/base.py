@@ -74,7 +74,7 @@ class VWBase(VWCallback):
 			self._set_by_query = True
 		else:
 			self._new = True
-			self.execute_callbacks('before_manual_create_object')
+			self.execute_callbacks('before_manual_create_model')
 
 		self._needs_update = False
 		self._watch = True
@@ -106,7 +106,7 @@ class VWBase(VWCallback):
 		self._set_by_query = False
 		self._no_ex = False
 		if self._new:
-			self.execute_callbacks('after_manual_create_object')
+			self.execute_callbacks('after_manual_create_model')
 	
 	# customizations for pickling
 	def __getstate__(self):

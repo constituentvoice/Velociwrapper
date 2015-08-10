@@ -594,6 +594,143 @@ Chainable (and can appear anywhere before an output method, including by having 
 first to last. ``desc`` sorts the field last to first. ``asc`` is the default.
 
 ----
+Query Bodies with ``querybuilder.QueryBody`` 
+--------------------------------------------
+
+Underlying chainable methods is the ``querybuilder.QueryBody`` class. This class helps build simple query bodies
+for Elasticsearch but attempts not to get too crazy. It stores an internal structure of the query and then
+builds it into a ``dict`` that can be passed to the underlying Elasticsearch client.  The class is used internally
+by ``VWCollection`` but you could use it directly to build queries to then pass to the ``raw()`` method.
+
+``QueryBody`` only supports queries and filters. For other wrappers, such as constant_score, you'll need to manually
+build the queries by hand or with the ``QDSL`` functions described below.
+
+**QueryBody methods**
+
+**chain** *(self, newpart=dict, \*\*kwargs)*
+
+Chains a new part of the query into the existing query. Newpart must be a ``dict`` with additional query parameters
+to pass to Elasticsearch. Note that ``newpart`` is not checked for correctness. 
+
+Returns ``self`` so additional methods can be called. 
+
+Keyword Arguments:
+
+- ``type`` *string*: either "query" or "filter". If not specified checks ``newpart`` for one of these keywords. Otherwise uses "query"
+- ``condition`` *string*: must|should|must_not|and|or|not. Defaults to "must". Specifies how this part of the query is treated in relation to the existing query
+- ``with_explicit`` *string*: and|or|not. Included for legacy purposes. Overrides ``condition`` and is useful if a nested bool was manually created. Generally should not be used.
+
+**is_filtered** *(self)*
+
+Returns ``True`` if the current query body contains a filter.
+
+**is_query** *(self)*
+
+Returns ``True`` is the current query body contains a query other than ``match_all {}``
+
+**build** *(self)*
+
+Builds the current query into a representation understood by Elasticsearch. Returns ``dict``
+
+----
+QDSL and Building Raw Queries
+----
+
+``velociwrapper.qdsl`` contains functions to help make writing QDSL easier.
+
+**QDSL Functions**
+
+**query** *(params=dict)*
+
+Returns ``params`` wrapped by ``{ "query": params }``
+
+**filter_** *(params=dict)*
+
+Returns ``params`` wrapped by ``{ "filter": params }``.
+
+Note the "_" appended to ``filter_`` to prevent confusion with Python's ``filter()``
+
+**match** *(field=str,value=str|dict,\*\*kwargs)*
+
+Returns ``{"match": { field: { "query": value } } }``
+
+Additional keyword arguments should be Elasticsearch arguments on ``match``
+
+**match_phrase** *(field=str,value=str|dict,\*\*kwargs)*
+
+Equivalent to ``match(field,value,type="phrase")``
+
+**match_phrase_prefix** *(field=str,value=str|dict,\*\*kwargs)*
+
+Equivalent to ``match(field,value,type="phrase_prefix")``
+
+**multi_match** *(query=str|dict, fields=list,\*\*kwargs)*
+
+Returns ``{"multi_match": {"query": query, "fields": fields } }``
+
+Additional keyword arguments should be Elasticsearch arguments on ``multi_match``
+
+**bool** *(\*args,\*\*kwargs)*
+
+Args are any number of dicts containing "must", "should" or "must_not" keys. Keyword arguments
+are Elasticsearch options for ``bool`` such as ``minimum_should_match``
+
+Example:
+
+::
+	from velociwrapper.qdsl import bool, must, must_not, match
+	mybool = bool(
+		must( match('foo','some value') ), 
+		must_not( match( 'bar', 'some other value' ) )
+	)
+
+Special Keyword arguments
+
+- *__vw_set_current* *dict*: set a current ``bool`` dictionary that will be updated rather than creating a blank one.
+
+**must** *(params=str|dict, value=str|dict|None,\*\*kwargs)*
+
+Creates a ``must`` arguement for ``bool``. If params is a ``dict`` then it is passed on directly. If it is a string or value
+is set then the params are treated as a field name and passed to ``term``.
+
+Example:
+
+::
+
+	must( match('foo', 'some value' ) )
+	# returns { "must": { "match": { "foo": {"query": "some value" } } } }
+
+	must('foo', 'some value' ) )
+	# returns { "must": { "term" { "foo": {"value": "some value" } } } }
+
+**must_not** *(params=str|dict,value=str|dict|None,\*\*kwargs)*
+
+Like ``must`` but uses "must_not"
+
+**should** *(params=str|dict,value=str|dict|None,\*\*kwargs)*
+
+Like ``must`` but uses "should"
+
+**term** *(field=str, value=str,\*\*kwargs)*
+
+Like ``match`` but for filters
+
+**terms** *(field=str,value=list,\*\*kwargs)*
+
+Like ``term`` but values are a list of strings to match in a field.
+
+**boosting** *(\*args, \*\*kwargs)*
+
+
+
+
+
+
+
+
+
+
+----
 
 Mapper
 ------
@@ -642,10 +779,124 @@ Output the index mapping for a VWBase class.
 Callbacks
 ---------
 
+There are several events built-in to Velociwrapper on which you can register callbacks. 
+Callbacks are registered at the class level so all instances will have the callback. You 
+can also register multiple methods for the same event. Callbacks recieve the instance and 
+a single (optional) argument. The argument is returned. In the case of multiple callbacks 
+on an event, the callbacks are fired in the order they were registered. The return value 
+from one method is passed to the next as the argument.
 
-----
-QDSL
-----
+Example:
+
+::
+	from your_models import Document
+
+	# check a user for entry in another database
+	def doc_database_check( vwinst, argument=None ):
+		if not doc_in_database(vwinst.id): 
+			insert_into_database( vwinst.id, vwinst.name, vwinst.content ) # or whatever
+		return argument 
+
+	Document.register_callback( 'after_commit', doc_database_check )
+
+Callbacks are defined in the ``VWCallback`` class in base.py. ``VWCollection`` and ``VWBase`` 
+derive from ``VWCallback``
+
+**Callback API**
+
+**register_callback** *(cls, callback_event=str, callback=callable)* *- classmethod*
+
+Register a callback for the event *callback_event* on the collection or base class. This is a class method,
+the callback becomes active on all instances.
+
+**deregister_callback** *(cls, callback_event=str, callback=callable|str)* *- classmethod*
+
+Deregister a callback for the event *callback_event* by its name or original function *callback*. Returns None
+even if there was not a callback by the name or for the event.
+
+**execute_callbacks** *(self, event=string, argument=None, \*\*kwargs)*
+
+Executes the current instances callbacks for *event* in the order they were registered. Returns *argument*.
+If no callback was registered for the event the method returns *None*
+
+**Available Events**
+
+*before_manual_create_model*
+
+Executed when a model instance is created directly but not when the model is created as the result of a search.
+*argument* is ignored, only the model's instance is passed. The event fires before mapping information is copied
+from the class and before the id is created.  An example use is a custom ID creation method.
+
+*after_manual_create_model*
+
+Executed when a model instance is created directly but not when the model is created as the result of a search.
+*argument* is ignored, only the model's instance is passed. The event fires after the class variables are copied
+to the instance, *id* is created, and the *__index__* is set.
+
+*on_delete*
+
+Executed when ``commit()`` is called on a deleted instance. Fires just before the underlying DELETE to Elasticsearch.
+Argument is ignored. Does not execute on a bulk delete call in ``VWCollection``.
+
+*before_commit*
+
+Executed before the INDEX call to Elasticsearch. The argument is ignored. Does not execute on bulk commit calls in
+``VWCollection``.
+
+*after_commit*
+
+Executed after the INDEX call to Elasticsearch. The argument is ignored. Does not execute on bulk commit calls in
+``VWCollection``.
+
+*before_sync*
+
+Executed before retrieveing the underlying document from Elasticsearch to sync the object. The argument is ignored. 
+
+*after_sync*
+
+Executed after variables from Elasticsearch have overwritten object attributes. The argument is ignored.
+
+*before_query_build*
+
+Executed just before a search query is created. The argument is the current ``QueryBody``.
+
+*after_query_build*
+
+Executes after the search query is created as a ``dict``. The argument is the ``dict`` to be passed to the Elasticsearch client.
+
+*on_bulk_commit*
+
+Executes for each item before being appended to a bulk commit operation. The argument is the item. The item can be a 
+``dict`` source document or a ``VWBase`` object depending on what was passed to the collections items. (If the commit
+criteria was a search query then ``VWBase`` objects are passed.
+
+*before_auto_create_model*
+
+Executes after a source document is retrieved from Elasticsearch but before the document is converted to a model
+instance. Note this does not fire until accessed in the ``VWCollectionGen`` generator. The argument passed is the
+source document
+
+*after_auto_create_model*
+
+Executes after the a source document result is converted to a model instance. Does not occur until the model 
+instance is accessed in the generator. Due to the way the generator works the instance passed to the callback
+is empty, while the argument is the newly created instance to manipulate.
+
+**Creating New Events**
+
+You can register your own events and fire them yourself.
+
+::
+
+	# register an event when your generic document is something specific
+	def is_pdf(inst, argument=None, **kwargs):
+		# do something
+		return argument
+
+	Document.register_callback( 'on_edit', is_pdf )
+
+	# then somewhere in your code (maybe an edit function?)
+	document_instance.execute_callbacks('on_edit')
 
 ----
 AUTHOR
