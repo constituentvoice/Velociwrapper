@@ -373,7 +373,6 @@ class VWCollection(VWCallback):
 	def commit(self, callback=None):
 		bulk_docs = []
 
-		# depreicated. Use register_callback('on_bulk_commit', callback )
 		if callback:
 			if not callable(callback):
 				raise TypeError('Argument 2 to commit() must be callable')

@@ -33,6 +33,16 @@ class VWCallback(object):
 
 		cls.callbacks[cls.__name__][cbtype].append( callback )
 
+	@classmethod
+	def deregister_callback(cls, cbtype, callback_name):
+		try:
+			for cb in cls.callbacks[cls.__name__][cbtype]:
+				if cb == callback_name or cb.__name__ == callback_name:
+					cls.callbacks[cls.__name__][cbtype].remove(cb)
+					break
+		except KeyError:
+			pass
+
 	def execute_callbacks( self, cbtype, argument=None, **kwargs ):
 		try:
 			for cb in self.callbacks[self.__class__.__name__][cbtype]:
