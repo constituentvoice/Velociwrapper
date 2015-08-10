@@ -721,13 +721,109 @@ Like ``term`` but values are a list of strings to match in a field.
 
 **boosting** *(\*args, \*\*kwargs)*
 
+Similar to ``bool`` allows any number of dicts with the key ``positive`` or ``negative``. Keyword arguments are options
+passed to ``boosting``
 
+**positive** *(field,value)*
 
+Returns ``{ "positive": { "term": { field: value } } }``
 
+**negative** *(field,value)*
 
+Returns ``{ "negative": {"term": { field:value } } }``
 
+**common** *(field, value, \*\*kwargs)*
 
+Returns ``{ "common": { field: { "query": value } } }``
 
+Keyword arguments are passed as additional key values to the ``field`` dict.
+
+**constant_score** *(\*args, \*\*kwargs)*
+
+Arguments should be ``dict``. A single argument is wrapped directly by ``constant_score``. In the case of multiple arguments the function searches each
+for ``query`` or ``filter`` keys to wrap in the output.
+
+**filtered** *(\*args, \*\*kwargs)*
+
+Arguments should be ``dict``. A single argument is wrapped directly by ``filtered``. In the case of multiple arguments the function searches each
+for ``query`` or ``filter`` keys to wrap in the output.
+
+Additional keyword arguments are set on the ``filtered`` dict.
+
+**function_score** *(\*args, \*\*kwargs)*
+
+Arguments should be ``dict``. A single argument is wrapped directly by ``function_score``. In the case of multiple arguments the function searches each
+for ``query``, ``filter``, ``FUNCTION``, or ``functions`` keys to wrap in the output. No magic happens here to check the validity of the functions!
+
+Keyword arguments are set on the ``function_score`` dict.
+
+**fuzzy**
+
+**ids**
+
+**query_term**
+
+**indicies**
+
+**match_all**
+
+**more_like_this**
+
+**nested**
+
+**prefix**
+
+**query_string**
+
+**simple_query_string**
+
+**range**
+
+**regexp**
+
+**span_term**
+
+**span_first**
+
+**span_multi**
+
+**span_near**
+
+**span_not**
+
+**span_or**
+
+**wildcard**
+
+**and_**
+
+**or_**
+
+**not_**
+
+**exists**
+
+**geo_bounding_box**
+
+**geo_distance**
+
+**geo_range**
+
+**geo_polygon**
+
+**geo_shape**
+
+**geohash_cell**
+
+**has_child**
+
+**has_parent**
+
+**missing**
+
+**script**
+
+**type_**
 
 
 ----
