@@ -390,7 +390,10 @@ class Boolean(object):
 	# can't extend bool :(
 	__metaclass__ = ESType
 	def __init__(*args, **kwargs):
-		self.value = bool(value[0])
+		try:
+			self.value = bool(args[0])
+		except IndexError:
+			raise TypeError('Boolean requires an argument')
 	
 	def __nonzero__(self):
 		return self.value
