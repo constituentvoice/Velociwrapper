@@ -267,7 +267,7 @@ class VWBase(VWCallback):
 				currvalue = create_es_type(currvalue) # create it as an es_type
 
 				try:
-					if value._metaclass__ == ESType:
+					if value.__metaclass__ == ESType:
 						set_value_cls = False
 					else:
 						set_value_cls = True
