@@ -389,7 +389,8 @@ class Date(date):
 class Boolean(object):
 	# can't extend bool :(
 	__metaclass__ = ESType
-	def __init__(*args, **kwargs):
+
+	def __init__(self, *args, **kwargs):
 		try:
 			self.value = bool(args[0])
 		except IndexError:
