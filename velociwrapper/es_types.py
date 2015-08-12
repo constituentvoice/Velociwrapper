@@ -386,18 +386,9 @@ class Date(date):
 	precision_step = 16
 	ignore_malformed = False
 
-class Boolean(object):
+class Boolean(int):
 	# can't extend bool :(
 	__metaclass__ = ESType
-
-	def __init__(self, *args, **kwargs):
-		try:
-			self.value = bool(args[0])
-		except IndexError:
-			raise TypeError('Boolean requires an argument')
-	
-	def __nonzero__(self):
-		return self.value
 
 class Binary(object):
 	__metaclass__ = ESType
