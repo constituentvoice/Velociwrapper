@@ -334,13 +334,13 @@ class VWCollection(VWCallback):
 	def missing( self, field, **kwargs):
 		#kwargs['filter'] = {"missing":{"field": field } }
 		#self._build_body( **kwargs )
-		self._querybody.chain( qdsl.filter( qdsl.missing( field ) ) )
+		self._querybody.chain( qdsl.filter_( qdsl.missing( field ) ) )
 		return self
 
 	def exists( self, field, **kwargs):
 		#kwargs['filter'] = {"exists": { "field": field } }
 		#self._build_body( **kwargs )
-		self._querybody.chain( qdsl.filter( qdsl.exists( field, **kwargs ) ) )
+		self._querybody.chain( qdsl.filter_( qdsl.exists( field, **kwargs ) ) )
 		return self
 
 	def delete(self, **kwargs):
