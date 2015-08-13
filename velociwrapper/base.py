@@ -308,7 +308,6 @@ class VWBase(VWCallback):
 
 								else:
 									value = test_value
-							
 
 							if type_enforcement:
 								try:
@@ -331,6 +330,8 @@ class VWBase(VWCallback):
 					self._document[name] = value.strftime('%Y-%m-%dT%H:%M:%S')
 				elif isinstance(value,Date) or isinstance(value,date):
 					self._document[name] = value.strftime('%Y-%m-%d')
+				elif isinstance(value,Boolean):
+					self._document[name] = bool(value)
 				else:
 					self._document[name] = value
 
@@ -340,7 +341,6 @@ class VWBase(VWCallback):
 
 	def commit(self):
 		# save in the db
-
 
 		if self._deleted and self.id:
 			self.execute_callbacks('on_delete')

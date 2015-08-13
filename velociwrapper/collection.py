@@ -15,10 +15,6 @@ from .base import VWBase,VWCallback
 class NoResultsFound(Exception):
 	pass
 
-# raised if the body of a search in _build_body() gets unexpected conditions
-class MalformedBodyError(Exception):
-	pass
-
 class VWCollection(VWCallback):
 	def __init__(self,items=[],**kwargs):
 

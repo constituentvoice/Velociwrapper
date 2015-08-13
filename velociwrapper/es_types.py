@@ -386,9 +386,21 @@ class Date(date):
 	precision_step = 16
 	ignore_malformed = False
 
-class Boolean(int):
+class Boolean(object):
 	# can't extend bool :(
+	# making it extend int did weird things in ES
+	# so it extends object and tries to act like a bool
+	# in base this class is detected and regular bools are always set as the attribute to be sent
 	__metaclass__ = ESType
+	
+	def __init__(self,value,**kwargs):
+		self.value = bool(value)
+	
+	def __nonzero__(self):
+		return self.value
+
+	def __repr__(self):
+		return str(self.value)
 
 class Binary(object):
 	__metaclass__ = ESType
