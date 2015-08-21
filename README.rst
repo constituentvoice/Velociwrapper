@@ -872,6 +872,7 @@ Keyword arguments
 Output the index mapping for a VWBase class.
 
 ----
+
 Callbacks
 ---------
 
@@ -995,6 +996,7 @@ You can register your own events and fire them yourself.
 	document_instance.execute_callbacks('on_edit')
 
 ----
+
 AUTHOR
 ------
 
