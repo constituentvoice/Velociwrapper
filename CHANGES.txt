@@ -166,3 +166,11 @@
 1.0.12
 	- fixed body not being propertly specified on reindex(). Caused explicit
 	  mapping to be deleted
+
+2.0 
+	- redid the query model. Tons of new features and speed improvements. See
+	  readme
+	- added callbacks
+
+2.0.4
+	- fixed a bug in callbacks
