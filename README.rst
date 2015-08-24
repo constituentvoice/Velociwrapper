@@ -519,6 +519,7 @@ Returns the single record specified by ``id`` or ``None`` if it does not exist.
 Returns a list of records specified by the list of ids or an empty list if no ids exist. Note this method cannot be sorted. If sorting is needed it is better to call
 
 ::
+    
     filter_by(ids=list).sort(...).all()
 
 **get_like_this** *(id)*
@@ -594,6 +595,7 @@ Chainable (and can appear anywhere before an output method, including by having 
 first to last. ``desc`` sorts the field last to first. ``asc`` is the default.
 
 ----
+
 Query Bodies with ``querybuilder.QueryBody`` 
 --------------------------------------------
 
@@ -633,8 +635,9 @@ Returns ``True`` is the current query body contains a query other than ``match_a
 Builds the current query into a representation understood by Elasticsearch. Returns ``dict``
 
 ----
+
 QDSL and Building Raw Queries
-----
+-----------------------------
 
 ``velociwrapper.qdsl`` contains functions to help make writing QDSL easier.
 
@@ -678,6 +681,7 @@ are Elasticsearch options for ``bool`` such as ``minimum_should_match``
 Example:
 
 ::
+
 	from velociwrapper.qdsl import bool, must, must_not, match
 	mybool = bool(
 		must( match('foo','some value') ), 
@@ -872,6 +876,7 @@ Keyword arguments
 Output the index mapping for a VWBase class.
 
 ----
+
 Callbacks
 ---------
 
@@ -885,13 +890,14 @@ from one method is passed to the next as the argument.
 Example:
 
 ::
-	from your_models import Document
 
-	# check a user for entry in another database
-	def doc_database_check( vwinst, argument=None ):
-		if not doc_in_database(vwinst.id): 
-			insert_into_database( vwinst.id, vwinst.name, vwinst.content ) # or whatever
-		return argument 
+    from your_models import Document
+    
+    # check a user for entry in another database
+    def doc_database_check( vwinst, argument=None ):
+        if not doc_in_database(vwinst.id):
+            insert_into_database( vwinst.id, vwinst.name, vwinst.content ) # or whatever
+            return argument 
 
 	Document.register_callback( 'after_commit', doc_database_check )
 
@@ -995,6 +1001,7 @@ You can register your own events and fire them yourself.
 	document_instance.execute_callbacks('on_edit')
 
 ----
+
 AUTHOR
 ------
 
@@ -1006,5 +1013,3 @@ COPYRIGHT
 ---------
 
 Copyright (c) 2015 Constituent Voice LLC
-
-
