@@ -18,34 +18,34 @@ class ObjectDeletedError(Exception):
 
 # Implements callbacks across objects
 class VWCallback(object):
-	callbacks = {}
+	_callbacks = {}
 	
 	@classmethod
 	def register_callback( cls, cbtype, callback ):
-		if cls.__name__ not in cls.callbacks:
-			cls.callbacks[cls.__name__] = {}
+		if cls.__name__ not in cls._callbacks:
+			cls._callbacks[cls.__name__] = {}
 
-		if cbtype not in cls.callbacks[cls.__name__]:
-			cls.callbacks[cls.__name__][cbtype] = []
+		if cbtype not in cls._callbacks[cls.__name__]:
+			cls._callbacks[cls.__name__][cbtype] = []
 		
 		if not callable(callback):
 			raise ValueError( 'parameter 2 to register_callback() must be callable' )
 
-		cls.callbacks[cls.__name__][cbtype].append( callback )
+		cls._callbacks[cls.__name__][cbtype].append( callback )
 
 	@classmethod
 	def deregister_callback(cls, cbtype, callback_name):
 		try:
-			for cb in cls.callbacks[cls.__name__][cbtype]:
+			for cb in cls._callbacks[cls.__name__][cbtype]:
 				if cb == callback_name or cb.__name__ == callback_name:
-					cls.callbacks[cls.__name__][cbtype].remove(cb)
+					cls._callbacks[cls.__name__][cbtype].remove(cb)
 					break
 		except KeyError:
 			pass
 
 	def execute_callbacks( self, cbtype, argument=None, **kwargs ):
 		try:
-			for cb in self.callbacks[self.__class__.__name__][cbtype]:
+			for cb in self._callbacks[self.__class__.__name__][cbtype]:
 				argument = cb( self, argument, **kwargs )
 		except KeyError:
 			pass # no callbacks by this name. 
@@ -260,7 +260,7 @@ class VWBase(VWCallback):
 				
 				# special rules for names with underscores.
 				# seting the _ values will not trigger an update. 
-				if name not in dir(self) or name in ['_set_by_query','_deleted','_watch','_new','_no_ex','_pickling','_document'] or self._pickling:
+				if name not in dir(self) or name in ['_set_by_query','_deleted','_watch','_new','_no_ex','_pickling','_document','_callbacks'] or self._pickling:
 					object.__setattr__(self,name,value)  # don't copy this stuff. Set it as is
 
 			else:
