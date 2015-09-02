@@ -5,6 +5,7 @@ from .relationship import relationship
 from .es_types import *
 from .base import VWBase
 import json
+import inspect
 
 # tools for creating or reindexing elasticsearch mapping
 class Mapper(object):
@@ -84,7 +85,7 @@ class Mapper(object):
 				continue
 
 
-			for k,v in sc.__dict__.iteritems():
+			for k,v in inspect.getmembers(sc):
 				try:
 					if v.__metaclass__ == ESType:
 						sc_body[sc.__type__]['properties'][k] = v.prop_dict()
@@ -95,7 +96,7 @@ class Mapper(object):
 
 		return indexes
 
-	def create_indicies(self, **kwargs):
+	def create_indices(self, **kwargs):
 
 		suffix = kwargs.get('suffix')
 		indexes = self.get_index_map(**kwargs)

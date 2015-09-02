@@ -52,6 +52,16 @@ class VWCallback(object):
 
 		return argument
 
+	@classmethod
+	def execute_class_callbacks(cls, cbtype, argument=None, **kwargs ):
+		try:
+			for cb in cls._callbacks[cls.__name__][cbtype]:
+				argument = cb( argument, **kwargs )
+		except KeyError:
+			pass # no callbacks by this name. 
+
+		return argument
+
 class VWBase(VWCallback):
 	# connects to ES
 	_watch = False
@@ -339,10 +349,10 @@ class VWBase(VWCallback):
 					object.__setattr__(self,'_needs_update',True)
 					object.__setattr__(self,'_watch',False)
 
-	def commit(self):
+	def commit(self, **kwargs):
 		# save in the db
 
-		if self._deleted and self.id:
+		if self._deleted and hasattr(self, 'id') and self.id:
 			self.execute_callbacks('on_delete')
 			self._es.delete(id=self.id,index=self.__index__,doc_type=self.__type__)
 		else:
@@ -360,7 +370,15 @@ class VWBase(VWCallback):
 
 			#	doc[k] = v
 
-			res = self._es.index(index=idx,doc_type=doc_type,id=self.id,body=doc)
+			kwargs.update({
+				'index': idx,
+				'doc_type': doc_type,
+				'body': doc,
+			})
+			if hasattr(self, 'id') and self.id:
+				kwargs['id'] = self.id
+
+			res = self._es.index(**kwargs)
 			self._watch = True
 			self.execute_callbacks('after_commit')
 

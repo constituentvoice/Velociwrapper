@@ -207,7 +207,7 @@ def indices(*args, **kwargs):
 
 	else:
 		if isinstance(args[0], list):
-			# treat as indicies
+			# treat as indices
 			output['indices']['indices'] = args[0]
 
 		for arg in args[1:]:

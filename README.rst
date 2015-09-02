@@ -41,7 +41,7 @@ Getting Started
 	
 	if __name__ == '__main__':
 		# create indexes
-		Mapper().create_indicies() # creates all defined VWBase models
+		Mapper().create_indices() # creates all defined VWBase models
 
 		# create a model
 		user = User(
@@ -154,7 +154,7 @@ Types
 Elasticsearch is extremely flexible when it comes to adding types but less forgiving about changing them. To
 help with this we created a metaclass called ``ESType`` to define mappings used in Elasticsearch. The types are 
 used when ``strict_types`` is on and both the mapping options and types are used when creating or reindexing the
-indicies.  The mapping options are set in the metaclass, otherwise the types subclass normal Python types and 
+indices.  The mapping options are set in the metaclass, otherwise the types subclass normal Python types and 
 are used the same way.
 
 Using Velociwrapper's types is completely optional. If you define the models using normal Python types, everything
@@ -767,7 +767,7 @@ Keyword arguments are set on the ``function_score`` dict.
 
 **query_term**
 
-**indicies**
+**indices**
 
 **match_all**
 
@@ -854,7 +854,7 @@ a particular index or group of indexes (must be a ``str`` or ``list``).
 
 *New in version 1.0.10*. Like *get_index_map()*, but returns the mapping as saved on the server.
 
-**create_indicies** *(\*\*kwargs)*
+**create_indices** *(\*\*kwargs)*
 
 Creates indexes based on currently loaded VWBase models or for the index or indexes specified by the ``index`` keyword argument.
 

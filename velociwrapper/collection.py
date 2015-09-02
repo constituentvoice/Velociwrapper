@@ -67,7 +67,7 @@ class VWCollection(VWCallback):
 		if kwargs.get('condition'):
 			condition=kwargs.get('condition')
 			del kwargs['condition']
-		
+
 		condition = self._translate_bool_condition( condition )
 
 		for k,v in kwargs.iteritems():
@@ -83,7 +83,7 @@ class VWCollection(VWCallback):
 					analyzed = is_analyzed( getattr(self.base_obj, k ) )
 				except AttributeError:
 					analyzed = is_analyzed( v )
-				
+
 				q_type = 'filter'
 				if analyzed:
 					q_type = 'query'
@@ -168,7 +168,7 @@ class VWCollection(VWCallback):
 		return []
 
 	def get_like_this(self,doc_id,**kwargs):
-		
+
 		params = dict(index=self.idx,doc_type=self.type,id=doc_id )
 		params.update(kwargs)
 		res = self._es.mlt(**params)
@@ -194,7 +194,7 @@ class VWCollection(VWCallback):
 		self._querybody = querybuilder.QueryBody()
 
 	def _create_search_params( self, **kwargs ):
-		
+
 		# before_query_build() is allowed to manipulate the object's internal state before we do the do
 		self._querybody = self.execute_callbacks('before_query_build', self._querybody )
 
@@ -372,7 +372,7 @@ class VWCollection(VWCallback):
 		if callback:
 			if not callable(callback):
 				raise TypeError('Argument 2 to commit() must be callable')
-		
+
 		# allow for a search to work if there are not _items
 		if len(self._items) == 0:
 			items = self.all()
@@ -415,7 +415,7 @@ class VWCollection(VWCallback):
 class VWCollectionGen(VWCallback):
 	def __init__(self, base_obj, es_results):
 		self.es_results = es_results
-		
+
 		try:
 			self.doc_list = self.es_results['docs']
 		except KeyError:
@@ -429,7 +429,7 @@ class VWCollectionGen(VWCallback):
 
 	def __iter__(self):
 		return self
-	
+
 	# makes this python 3 compatible
 	def __next__(self):
 		return self.next()
@@ -443,15 +443,16 @@ class VWCollectionGen(VWCallback):
 		return self._create_obj(doc)
 
 	def _create_obj(self,doc):
-		doc = self.base_obj.execute_callbacks( self.base_obj(), 'before_auto_create_model', doc )
-		
+		doc = self.base_obj.execute_class_callbacks('before_auto_create_model', doc)
+
 		src = doc.get('_source')
 		src['_set_by_query'] = True
 		src['id'] = doc.get('_id')
 
-		return self.base_obj.execute_callbacks( self.base_obj(), 'after_auto_create_model', self.base_obj(**src) )
+		obj = self.base_obj(**src)
+		return obj.execute_callbacks('after_auto_create_model', obj, **src)
 
-	# python abuse! 
+	# python abuse!
 	# seriously though we want to act like a list in many cases
 	def __getitem__(self,idx):
 		return self._create_obj(self.doc_list[idx] )
