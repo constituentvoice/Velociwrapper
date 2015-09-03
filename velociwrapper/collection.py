@@ -440,6 +440,12 @@ class VWCollectionGen(VWCallback):
 			raise StopIteration
 
 		doc = self.doc_list[self.count - 1]
+
+		# sometimes ES will return a "document" that has no _source
+		# this is a hack to skip it
+		if not doc.get('_source'):
+			return self.next()
+
 		return self._create_obj(doc)
 
 	def _create_obj(self,doc):

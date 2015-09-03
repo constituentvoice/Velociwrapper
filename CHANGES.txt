@@ -172,5 +172,7 @@
 	  readme
 	- added callbacks
 
-2.0.4
+2.0.5-dev
 	- fixed a bug in callbacks
+	- fixed bool type only accepting integers
+	- fixed collection generator crash when a document has no _source
