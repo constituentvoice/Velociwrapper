@@ -8,7 +8,7 @@ Installation
 ------------
 
 ::
-	pip install Velociwrapper
+    pip install Velociwrapper
 
 Or download manually and run setup.py 
 
@@ -16,81 +16,81 @@ Getting Started
 ---------------
 
 ::
-	
-	# configuration
-	import velociwrapper
-	velociwrapper.config.dsn = ["localhost"]
-	velociwrapper.config.default_index = 'my_elasticsearch_index'
-	velociwrapper.config.results_per_page = 50
-	
-	from velociwrapper import VWBase, VWCollection
-	from velociwrapper.es_type import String, Integer, DateTime
-	from velociwrapper.mapper import Mapper # for creating or reindexing indexes
+    
+    # configuration
+    import velociwrapper
+    velociwrapper.config.dsn = ["localhost"]
+    velociwrapper.config.default_index = 'my_elasticsearch_index'
+    velociwrapper.config.results_per_page = 50
+    
+    from velociwrapper import VWBase, VWCollection
+    from velociwrapper.es_type import String, Integer, DateTime
+    from velociwrapper.mapper import Mapper # for creating or reindexing indexes
 
-	# create models, similar to SQLAlchemy
+    # create models, similar to SQLAlchemy
 
-	class User(VWBase):
-		
-		__index__ = 'user_index'  # each model can have a custom index. If omitted, uses the default
-		__type__ = 'user' # each model most specify the type. Cooresponds to the doc_type in Elasticsearch
+    class User(VWBase):
+        
+        __index__ = 'user_index'  # each model can have a custom index. If omitted, uses the default
+        __type__ = 'user' # each model most specify the type. Cooresponds to the doc_type in Elasticsearch
 
-		username = String(analyzed=False) # keyword arguments can be used to affect the mapping 
-		password = String(analyzed=False)
-		email = String()
-		permission_level = String('default_permission', analyzed=False) # ES Types can have default values
-		name = '' # Velociwrapper will automatically convert python types to the appropriate type (but you can't specify mappings)
-		created = DateTime() # defaults to current time
-		address = {} # models can also have nested information
+        username = String(analyzed=False) # keyword arguments can be used to affect the mapping 
+        password = String(analyzed=False)
+        email = String()
+        permission_level = String('default_permission', analyzed=False) # ES Types can have default values
+        name = '' # Velociwrapper will automatically convert python types to the appropriate type (but you can't specify mappings)
+        created = DateTime() # defaults to current time
+        address = {} # models can also have nested information
 
-	# define a collection. You only need to specify the model
-	class Users(VWCollection):
-		__model__ = User
+    # define a collection. You only need to specify the model
+    class Users(VWCollection):
+        __model__ = User
 
-	
-	if __name__ == '__main__':
-		# create indexes
-		Mapper().create_indices() # creates all defined VWBase models
+    
+    if __name__ == '__main__':
+        # create indexes
+        Mapper().create_indices() # creates all defined VWBase models
 
-		# create a model
-		user = User(
-			username='johndoe',
-			password=some_encrypt_method('password'),
-			email='johndoe@example.com',
-			permission_level='admin',
-			name='John Doe',
-			address={ 'street': '123 Some Street', 'city':'Somewhere','state':'TX','zip':'75000' }
-			)
-		
-		# commit the info to the index
-		user.commit()
+        # create a model
+        user = User(
+            username='johndoe',
+            password=some_encrypt_method('password'),
+            email='johndoe@example.com',
+            permission_level='admin',
+            name='John Doe',
+            address={ 'street': '123 Some Street', 'city':'Somewhere','state':'TX','zip':'75000' }
+            )
+        
+        # commit the info to the index
+        user.commit()
 
-		# (id is created automatically unless specified)
-		
-		# data is retrieved using a collection class
+        # (id is created automatically unless specified)
+        
+        # data is retrieved using a collection class
 
-		# search for a user by id
-		user_by_id = Users().get(user.id)
+        # search for a user by id
+        user_by_id = Users().get(user.id)
 
-		# search by another field and return 1 
-		user_by_username = Users().filter_by(username='johndoe').one()
+        # search by another field and return 1 
+        user_by_username = Users().filter_by(username='johndoe').one()
 
-		# search by multiple fields
-		user_by_fields = Users().filter_by(username='johndoe', email='johndoe@example.com').one()
+        # search by multiple fields
+        user_by_fields = Users().filter_by(username='johndoe', email='johndoe@example.com').one()
 
-		# or chain search conditions together
-		user_by_fields = Users().filter_by(username='johndoe').filter_by(email='johndoe@example.com').one()
+        # or chain search conditions together
+        user_by_fields = Users().filter_by(username='johndoe').filter_by(email='johndoe@example.com').one()
 
-		# specify boolean conditions. ( all() gets all related records for the page)
-		users = Users().filter_by(username='johndoe', email='quazimoto@example.com', condition='or').all()
+        # specify boolean conditions. ( all() gets all related records for the page)
+        users = Users().filter_by(username='johndoe', email='quazimoto@example.com', condition='or').all()
 
-		# find out how many records match the criteria in the entire index
-		user_count = Users().filter_by(username='johndoe', email='quazimoto@example.com', condition='or').count()
+        # find out how many records match the criteria in the entire index
+        user_count = Users().filter_by(username='johndoe', email='quazimoto@example.com', condition='or').count()
 
-		# or using len()
-		user_count = len(Users().filter_by(username='johndoe', email='quazimoto@example.com', condition='or'))
+        # or using len()
+        user_count = len(Users().filter_by(username='johndoe', email='quazimoto@example.com', condition='or'))
 
-		# nested objects can automatically be searched as well
-		users = Users().filter_by(city='Somewhere').all()
+        # nested objects can automatically be searched as well
+        users = Users().filter_by(city='Somewhere').all()
 
 Velociwrapper can do many more things. Read on!
 
@@ -177,7 +177,7 @@ In cases where the option begins with "_" Velociwrapper requires the underscore 
 **Available Types**
 
 **String** *([str],\*\*kwargs)*
-	
+    
 Keyword args:
 
 - ``analyzed``
@@ -269,28 +269,28 @@ Example:
 
 ::
 
-	class User(VWBase):
-		__index__ = 'user_index'
-		__type__ = 'user'
-		username = String(analyzed=False)
-		password = String(analyzed=False)
-		email = String(analyzed=False)
-		name = String()
-		profile_image = String('default.jpg')
+    class User(VWBase):
+        __index__ = 'user_index'
+        __type__ = 'user'
+        username = String(analyzed=False)
+        password = String(analyzed=False)
+        email = String(analyzed=False)
+        name = String()
+        profile_image = String('default.jpg')
 
 
 Or without using ESTypes:
 
 ::
 
-	class User(VWBase):
-		__index__ = 'user_index'
-		__type__ = 'user'
-		username = ''
-		password = ''
-		email = ''
-		name = ''
-		profile_image = ''
+    class User(VWBase):
+        __index__ = 'user_index'
+        __type__ = 'user'
+        username = ''
+        password = ''
+        email = ''
+        name = ''
+        profile_image = ''
 
 The added benefit of using ESTypes is specifying the mappings. This helps velociwrapper know what kind of searches to build
 and can create the mappings for you, if you haven't specified them yourself.
@@ -299,23 +299,23 @@ Once models are created they must be committed to save into the Elasticsearch cl
 
 ::
 
-	u = User(
-		username='jsmith', 
-		password=crypt_method('password123'), 
-		email='jsmith@example.com', 
-		name='John Smith', 
-		profile_image='jsmith.jpg'
-		)
+    u = User(
+        username='jsmith', 
+        password=crypt_method('password123'), 
+        email='jsmith@example.com', 
+        name='John Smith', 
+        profile_image='jsmith.jpg'
+        )
 
-	u.commit()
+    u.commit()
 
 The call to ``commit()`` generates an id for the document. If you want to explicitly set the id first, you can set the id attribute:
 
 ::
 
-	u = User( ... )
-	u.id = 'my-unique-id'
-	u.commit()
+    u = User( ... )
+    u.id = 'my-unique-id'
+    u.commit()
 
 *Be careful!*. IDs have to be unique across all types in your index. If your ID is not unique, the ID specified will be updated by
 your new data. It is recommended to let Velociwrapper handle ID creation unless you're certain of what you're doing.
@@ -353,24 +353,24 @@ Collections are used to search and return collections of models. Searches can be
 (much like SQLAlchemy). Currently collections are of one document type only. This may change in a future release.
 
 Example:
-	
+    
 ::
 
-	# all users named john
-	users = Users().filter_by(name='John').all()
+    # all users named john
+    users = Users().filter_by(name='John').all()
 
-	# users named john who live in texas
-	users = Users().filter_by(name='John', state='TX').all()
+    # users named john who live in texas
+    users = Users().filter_by(name='John', state='TX').all()
 
-	# another way to write the same as above
-	users = Users().filter_by(name='John').filter_by(state='TX').all()
+    # another way to write the same as above
+    users = Users().filter_by(name='John').filter_by(state='TX').all()
 
 By default chained criteria are joined with "AND" ("must" in most cases internally). But can be controlled:
 
 ::
 
-	# users who live in texas or are named john:
-	users = Users().filter_by(name='John', state='TX', condition='or').all()
+    # users who live in texas or are named john:
+    users = Users().filter_by(name='John', state='TX', condition='or').all()
 
 For more complex queries see the ``raw()`` method and the QDSL module.
 
@@ -381,14 +381,14 @@ model. ``baseobj`` must be a subclass of ``VWBase``
 
 ::
 
-	users = VWCollection(baseobj=User)
+    users = VWCollection(baseobj=User)
 
 The better way to create a collection is to define it with your model. Subclass VWCollection and set the __model__ property
 
 ::
 
-	class Users(VWCollection):
-		__model__ = User
+    class Users(VWCollection):
+        __model__ = User
 
 **Conditions**
 
@@ -408,18 +408,18 @@ Examples:
 
 ::
 
-	# get users in named John or Stacy	
-	users = Users().filter_by(name='John').filter_by(name='Stacy', condition='or').all()
+    # get users in named John or Stacy  
+    users = Users().filter_by(name='John').filter_by(name='Stacy', condition='or').all()
 
-	# equivalent because the second filter_by() will use the preceeding or condition:
-	users = Users().filter_by(name='John', condition='or').filter_by(name='Stacy').all()
+    # equivalent because the second filter_by() will use the preceeding or condition:
+    users = Users().filter_by(name='John', condition='or').filter_by(name='Stacy').all()
 
-	# add another condition, such as state, might not always do what we expect. This would return anyone
-	# who's name is stacy or john or lives in Texas
-	users = Users().filter_by(name='John').filter_by(name='Stacy', condition='or').filter_by(state='TX').all()
+    # add another condition, such as state, might not always do what we expect. This would return anyone
+    # who's name is stacy or john or lives in Texas
+    users = Users().filter_by(name='John').filter_by(name='Stacy', condition='or').filter_by(state='TX').all()
 
-	# (john or stacy) and state
-	users = Users().filter_by(name='John').filter_by(name='Stacy', condition='or').filter_by(state='TX',condition='and').all()
+    # (john or stacy) and state
+    users = Users().filter_by(name='John').filter_by(name='Stacy', condition='or').filter_by(state='TX',condition='and').all()
 
 Obviously order matters. For more complex queries the other option is to use the ``raw()`` method and the QDSL module (see below)
 
@@ -472,8 +472,8 @@ Delete the records specified by the search query.
 Delete the records specified by a list of ids. Equivalent to:
 
 ::
-	
-	Users().filter_by(ids=list_of_ids).delete()
+    
+    Users().filter_by(ids=list_of_ids).delete()
 
 **exact** *(field=str, value=mixed)*
 
@@ -690,11 +690,11 @@ Example:
 
 ::
 
-	from velociwrapper.qdsl import bool, must, must_not, match
-	mybool = bool(
-		must( match('foo','some value') ), 
-		must_not( match( 'bar', 'some other value' ) )
-	)
+    from velociwrapper.qdsl import bool, must, must_not, match
+    mybool = bool(
+        must( match('foo','some value') ), 
+        must_not( match( 'bar', 'some other value' ) )
+    )
 
 Special Keyword arguments
 
@@ -709,11 +709,11 @@ Example:
 
 ::
 
-	must( match('foo', 'some value' ) )
-	# returns { "must": { "match": { "foo": {"query": "some value" } } } }
+    must( match('foo', 'some value' ) )
+    # returns { "must": { "match": { "foo": {"query": "some value" } } } }
 
-	must('foo', 'some value' ) )
-	# returns { "must": { "term" { "foo": {"value": "some value" } } } }
+    must('foo', 'some value' ) )
+    # returns { "must": { "term" { "foo": {"value": "some value" } } } }
 
 **must_not** *(params=str|dict,value=str|dict|None,\*\*kwargs)*
 
@@ -847,7 +847,7 @@ Use the mapper by importing it:
 
 ::
 
-	from velociwrapper.mapper import Mapper
+    from velociwrapper.mapper import Mapper
 
 The Mapper class has utilities for managing the Elasticsearch index.
 
@@ -907,7 +907,7 @@ Example:
             insert_into_database( vwinst.id, vwinst.name, vwinst.content ) # or whatever
             return argument 
 
-	Document.register_callback( 'after_commit', doc_database_check )
+    Document.register_callback( 'after_commit', doc_database_check )
 
 Callbacks are defined in the ``VWCallback`` class in base.py. ``VWCollection`` and ``VWBase`` 
 derive from ``VWCallback``
@@ -998,15 +998,15 @@ You can register your own events and fire them yourself.
 
 ::
 
-	# register an event when your generic document is something specific
-	def is_pdf(inst, argument=None, **kwargs):
-		# do something
-		return argument
+    # register an event when your generic document is something specific
+    def is_pdf(inst, argument=None, **kwargs):
+        # do something
+        return argument
 
-	Document.register_callback( 'on_edit', is_pdf )
+    Document.register_callback( 'on_edit', is_pdf )
 
-	# then somewhere in your code (maybe an edit function?)
-	document_instance.execute_callbacks('on_edit')
+    # then somewhere in your code (maybe an edit function?)
+    document_instance.execute_callbacks('on_edit')
 
 ----
 

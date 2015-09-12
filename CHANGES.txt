@@ -1,198 +1,198 @@
 0.1.0
-	- initial release
+    - initial release
 0.1.1
-	- bugfixes
+    - bugfixes
 0.1.2
-	- MOAR bug fixes
+    - MOAR bug fixes
 0.1.3
-	- Fixed issues with pagination
-	- Fixed issue where some values were not copied
+    - Fixed issues with pagination
+    - Fixed issue where some values were not copied
 
 0.1.4
-	- Fixed deepcopy of shared resources (specifically self._es)
+    - Fixed deepcopy of shared resources (specifically self._es)
 
 0.2.0
-	- Calls to _create_search_params() create the native parameters to send to
-	  elastic search and then remove the settings from the object. This allows
-	  the collection object to be used for a new search. The drawback is
-	  subsequent calls to all() will not work as expected.
-	- added functionality for one() to return the first result of a query
-	- Raises AttributeError if an attribute doesn't exist (previously returned
-	  None but we have now considered this a bug)
-	- Fixed bugs related to _set_by_query not being set
-	- Fixed _deleted not getting set
-	- Added relationship functionality
-		- relationships can be specified on single columns
-		- setting of a model on a relationship attribute does not yet work
+    - Calls to _create_search_params() create the native parameters to send to
+      elastic search and then remove the settings from the object. This allows
+      the collection object to be used for a new search. The drawback is
+      subsequent calls to all() will not work as expected.
+    - added functionality for one() to return the first result of a query
+    - Raises AttributeError if an attribute doesn't exist (previously returned
+      None but we have now considered this a bug)
+    - Fixed bugs related to _set_by_query not being set
+    - Fixed _deleted not getting set
+    - Added relationship functionality
+        - relationships can be specified on single columns
+        - setting of a model on a relationship attribute does not yet work
 
 0.2.1
-	- reverted _create_search_params() change. Search paramters stay. Broke
-	  too much stuff.
-	- added clear_previous_search() to clear the search and reuse the
-	  collection
+    - reverted _create_search_params() change. Search paramters stay. Broke
+      too much stuff.
+    - added clear_previous_search() to clear the search and reuse the
+      collection
 
 0.2.2
-	- bugfix to make VWCollection extend object
+    - bugfix to make VWCollection extend object
 
 0.2.3
-	- added function for geo searches
+    - added function for geo searches
 
 0.2.4
-	- added sort()
-	- added range()
-	- BUG: range() doesn't work with other searches. To be fixed.
+    - added sort()
+    - added range()
+    - BUG: range() doesn't work with other searches. To be fixed.
 
 0.2.5
-	- drew fixed broken delete()
+    - drew fixed broken delete()
 
 0.2.6
-	- ???
+    - ???
 
 0.2.7
-	- added delete() and delete_in() to collections
+    - added delete() and delete_in() to collections
 
 0.2.8
-	- added commit() to bulk commit
+    - added commit() to bulk commit
 
 0.2.9
-	- bulk commit now returns the status of each commit
-	- fixed date time format to work with bulk commit
+    - bulk commit now returns the status of each commit
+    - fixed date time format to work with bulk commit
 
 0.2.10
-	- added callback argument to commit
+    - added callback argument to commit
 
 0.2.11
-	- fixed collection calling wrong variable name when a custom index is
-	  specfied
-	- velociwrapper.__version__ returns the version number of the module now
+    - fixed collection calling wrong variable name when a custom index is
+      specfied
+    - velociwrapper.__version__ returns the version number of the module now
 
 0.2.12
-	- allow _create_source_document() to have a specified date or datetime
-	  format
-	- fixed to_dict() to return date_time format in true ISO 0000-00-00
-	  00:00:00
-	- fixed date object creation being turned into datetime
+    - allow _create_source_document() to have a specified date or datetime
+      format
+    - fixed to_dict() to return date_time format in true ISO 0000-00-00
+      00:00:00
+    - fixed date object creation being turned into datetime
 
 0.2.13
-	- fix get_in() to properly use _create_obj_list()
-	- get_in() no longer catches exceptions (was returning an empty list)
-	- _create_obj_list() filters out docs that returned found: False to
-	  prevent an exception when creating the object
-	  - this has the effect of returning all found documents from list calls
-	  - instead of throwing exceptions / returning empty if a single doc fails
-	  - we believe this was the original intended behavior
-	- Fixed get_like_this()
+    - fix get_in() to properly use _create_obj_list()
+    - get_in() no longer catches exceptions (was returning an empty list)
+    - _create_obj_list() filters out docs that returned found: False to
+      prevent an exception when creating the object
+      - this has the effect of returning all found documents from list calls
+      - instead of throwing exceptions / returning empty if a single doc fails
+      - we believe this was the original intended behavior
+    - Fixed get_like_this()
 
 0.2.14
-	- fixed all() and search() (broken by the last update!)
+    - fixed all() and search() (broken by the last update!)
 
 0.2.15
-	- fixed empty list passed to get_in() throwing exception
+    - fixed empty list passed to get_in() throwing exception
 
 1.0.0
-	- Split the module into multiple files
-	- moved module configuration into velociwrapper.config
-	- added types that coorespond to types used in ElasticSearch
-	- added mapper tools to include reindex and create index functionality
-	- changed filter_by() to use Query DSL
-		- intellegently uses filters and falls back to queries when filtering
-		  is not possible
-		- filter mode works like exact()
-		- id/ids key creates the special "ids" filter
-	- added exact()
-		- search for the exact phrase
-		- can be combined with other queries using filter_by (but not ids)
-		- will warn if the search is a string but the field is analyzed
-		- can accept a list
-	- range() now works with other searchs
-	- search() may not always work with other searches due to nature of
-	  QueryDSL
-	- wrote some documentation in the README.rst
+    - Split the module into multiple files
+    - moved module configuration into velociwrapper.config
+    - added types that coorespond to types used in ElasticSearch
+    - added mapper tools to include reindex and create index functionality
+    - changed filter_by() to use Query DSL
+        - intellegently uses filters and falls back to queries when filtering
+          is not possible
+        - filter mode works like exact()
+        - id/ids key creates the special "ids" filter
+    - added exact()
+        - search for the exact phrase
+        - can be combined with other queries using filter_by (but not ids)
+        - will warn if the search is a string but the field is analyzed
+        - can accept a list
+    - range() now works with other searchs
+    - search() may not always work with other searches due to nature of
+      QueryDSL
+    - wrote some documentation in the README.rst
 
 1.0.1
-	- fixed es_types.is_analyzed returning False on lists and objects
-	- fixed syntax error in collections, prevented filter_by kwargs from
-	  accepting list values
+    - fixed es_types.is_analyzed returning False on lists and objects
+    - fixed syntax error in collections, prevented filter_by kwargs from
+      accepting list values
 
 1.0.2
-	- fixed date parsing when converting to ESType
-	- changed Date() and DateTime() to accept a date or datetime (respectivly)
-	  on __init__()
-	- fixed incorrect version number
-	- changed setup.py to use the version from the module
+    - fixed date parsing when converting to ESType
+    - changed Date() and DateTime() to accept a date or datetime (respectivly)
+      on __init__()
+    - fixed incorrect version number
+    - changed setup.py to use the version from the module
 
 1.0.3
-	- fixed datetimes being converted to date
-	- fixed microseconds being added to datetimes sent to the server (and
-	  throwing exceptions)
+    - fixed datetimes being converted to date
+    - fixed microseconds being added to datetimes sent to the server (and
+      throwing exceptions)
 
 1.0.4
-	- fixed a bug that prevented defaults from being set when objects are
-	  created
+    - fixed a bug that prevented defaults from being set when objects are
+      created
 
 1.0.5
-	- fixed so VWBase objects can be pickled
+    - fixed so VWBase objects can be pickled
 
 1.0.6
-	- fixed collections references VWBase before it was imported
+    - fixed collections references VWBase before it was imported
 
 1.0.7
-	- fixed datetime sending "datetime" as type to Elasticsearch (should send
-	  date)
+    - fixed datetime sending "datetime" as type to Elasticsearch (should send
+      date)
 
 1.0.8
-	- adds Array() type to ESTypes. Allows to specify an array of various
-	  ESTypes
+    - adds Array() type to ESTypes. Allows to specify an array of various
+      ESTypes
 
 1.0.9
-	- fixes pickling VWBase objects causing existing instances to lose
-	  connection to elasticsearch (because the _es attribute is a static
-	  attribute)
-	- fixes mapper.reindex() to ignore subclasses that have no __type__
-	  attribute. Such subclasses are treated as helpers that actual models are
-	  derived from
+    - fixes pickling VWBase objects causing existing instances to lose
+      connection to elasticsearch (because the _es attribute is a static
+      attribute)
+    - fixes mapper.reindex() to ignore subclasses that have no __type__
+      attribute. Such subclasses are treated as helpers that actual models are
+      derived from
 
 1.0.10
-	- added get_server_mapping() to Mapper. Allows inspection of what the
-	  server actually has rather than what the code says.
-	- fixed GeoPoint ESType returning the wrong type to elasticsearch
-	- fixed setup.py failing due to missing imports when looking for version
-	  before dependencies are resolved.
-	- updated documentation
+    - added get_server_mapping() to Mapper. Allows inspection of what the
+      server actually has rather than what the code says.
+    - fixed GeoPoint ESType returning the wrong type to elasticsearch
+    - fixed setup.py failing due to missing imports when looking for version
+      before dependencies are resolved.
+    - updated documentation
 
 1.0.11
-	- added multi_match()
+    - added multi_match()
 
 1.0.12
-	- fixed body not being propertly specified on reindex(). Caused explicit
-	  mapping to be deleted
+    - fixed body not being propertly specified on reindex(). Caused explicit
+      mapping to be deleted
 
 2.0 
-	- rewrite of much of the internal query system
-	- created qdsl.py module to output parts of Query DSL by calling functions
-	- created querybuilder class that uses the QDSL functions and represents
-	  the internal query state
-		- much easier to chain calls together
-		- no longer has to traverse the tree of JSON/dictionary to find where
-		  to place new arguments
-		- all search methods (in collection.py) now use the querybuilder / qdsl
-	- Created VWCollectionGen generator object which is now returned by all()
-	  and get_in()
-		- vastly improves performance on large queries
-		- items in the generator can still be referenced by index
-	- added callbacks / events
-		- several built-in events
-		- events can be added and triggered
-		- global event / callback system. Callbacks added to models exist for
-		  all models of the same type
+    - rewrite of much of the internal query system
+    - created qdsl.py module to output parts of Query DSL by calling functions
+    - created querybuilder class that uses the QDSL functions and represents
+      the internal query state
+        - much easier to chain calls together
+        - no longer has to traverse the tree of JSON/dictionary to find where
+          to place new arguments
+        - all search methods (in collection.py) now use the querybuilder / qdsl
+    - Created VWCollectionGen generator object which is now returned by all()
+      and get_in()
+        - vastly improves performance on large queries
+        - items in the generator can still be referenced by index
+    - added callbacks / events
+        - several built-in events
+        - events can be added and triggered
+        - global event / callback system. Callbacks added to models exist for
+          all models of the same type
 
 2.0.5 
-	- consolidated version number
-	- fixed a bug in callbacks
-	- fixed bool type only accepting integers
-	- fixed _create_obj() being called multiple times
-	- fixed collection generator crash when a document has no _source
+    - consolidated version number
+    - fixed a bug in callbacks
+    - fixed bool type only accepting integers
+    - fixed _create_obj() being called multiple times
+    - fixed collection generator crash when a document has no _source
 
 2.0.6
-	- first public release
-	- fixed version numbers
+    - first public release
+    - fixed version numbers

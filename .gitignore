@@ -2,3 +2,4 @@ MANIFEST
 *.pyc
 *.swp
 *.vim
+dist/
