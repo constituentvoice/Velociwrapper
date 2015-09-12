@@ -4,6 +4,14 @@ Velociwrapper
 Velociwrapper is a wrapper to create ORM like features around Elasticsearch indexes.
 Velociwrapper is not a true ORM since Elasticsearch isn't a relational database
 
+Installation
+------------
+
+::
+	pip install Velociwrapper
+
+Or download manually and run setup.py 
+
 Getting Started
 ---------------
 
