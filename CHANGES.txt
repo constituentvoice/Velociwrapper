@@ -168,12 +168,31 @@
 	  mapping to be deleted
 
 2.0 
-	- redid the query model. Tons of new features and speed improvements. See
-	  readme
-	- added callbacks
+	- rewrite of much of the internal query system
+	- created qdsl.py module to output parts of Query DSL by calling functions
+	- created querybuilder class that uses the QDSL functions and represents
+	  the internal query state
+		- much easier to chain calls together
+		- no longer has to traverse the tree of JSON/dictionary to find where
+		  to place new arguments
+		- all search methods (in collection.py) now use the querybuilder / qdsl
+	- Created VWCollectionGen generator object which is now returned by all()
+	  and get_in()
+		- vastly improves performance on large queries
+		- items in the generator can still be referenced by index
+	- added callbacks / events
+		- several built-in events
+		- events can be added and triggered
+		- global event / callback system. Callbacks added to models exist for
+		  all models of the same type
 
-2.0.5-dev
+2.0.5 
+	- consolidated version number
 	- fixed a bug in callbacks
 	- fixed bool type only accepting integers
 	- fixed _create_obj() being called multiple times
 	- fixed collection generator crash when a document has no _source
+
+2.0.6
+	- first public release
+	- fixed version numbers

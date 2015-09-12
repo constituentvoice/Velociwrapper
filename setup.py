@@ -9,8 +9,8 @@ from version import __version__
 setup(
 	name='Velociwrapper',
 	version=__version__,
-	author='Chris Brown',
-	author_email='chris.brown@nwyc.com',
+	author='Constituent Voice',
+	author_email='chris.brown@constituentvoice.com',
 	packages=['velociwrapper'],
 	url='https://github.com/constituentvoice/Velociwrapper',
 	license='BSD',
