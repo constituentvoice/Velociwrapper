@@ -1,0 +1,1161 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+    <meta charset='utf-8'>
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <meta name="description" content="Velociwrapper : Velociwrapper is a wrapper to create models around ElasticSearch">
+
+    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
+
+    <title>Velociwrapper</title>
+  </head>
+
+  <body>
+
+    <!-- HEADER -->
+    <div id="header_wrap" class="outer">
+        <header class="inner">
+          <a id="forkme_banner" href="https://github.com/constituentvoice/Velociwrapper">View on GitHub</a>
+
+          <h1 id="project_title">Velociwrapper</h1>
+          <h2 id="project_tagline">Velociwrapper is a wrapper to create models around ElasticSearch</h2>
+
+            <section id="downloads">
+              <a class="zip_download_link" href="https://github.com/constituentvoice/Velociwrapper/zipball/master">Download this project as a .zip file</a>
+              <a class="tar_download_link" href="https://github.com/constituentvoice/Velociwrapper/tarball/master">Download this project as a tar.gz file</a>
+            </section>
+        </header>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div id="main_content_wrap" class="outer">
+      <section id="main_content" class="inner">
+        <h1>
+<a id="velociwrapper" class="anchor" href="#velociwrapper" aria-hidden="true"><span class="octicon octicon-link"></span></a>Velociwrapper</h1>
+
+<p>Velociwrapper is a wrapper to create ORM like features around Elasticsearch indexes.
+Velociwrapper is not a true ORM since Elasticsearch isn't a relational database</p>
+
+<h2>
+<a id="getting-started" class="anchor" href="#getting-started" aria-hidden="true"><span class="octicon octicon-link"></span></a>Getting Started</h2>
+
+<p>::</p>
+
+<pre><code># configuration
+import velociwrapper
+velociwrapper.config.dsn = ["localhost"]
+velociwrapper.config.default_index = 'my_elasticsearch_index'
+velociwrapper.config.results_per_page = 50
+
+from velociwrapper import VWBase, VWCollection
+from velociwrapper.es_type import String, Integer, DateTime
+from velociwrapper.mapper import Mapper # for creating or reindexing indexes
+
+# create models, similar to SQLAlchemy
+
+class User(VWBase):
+
+    __index__ = 'user_index'  # each model can have a custom index. If omitted, uses the default
+    __type__ = 'user' # each model most specify the type. Cooresponds to the doc_type in Elasticsearch
+
+    username = String(analyzed=False) # keyword arguments can be used to affect the mapping 
+    password = String(analyzed=False)
+    email = String()
+    permission_level = String('default_permission', analyzed=False) # ES Types can have default values
+    name = '' # Velociwrapper will automatically convert python types to the appropriate type (but you can't specify mappings)
+    created = DateTime() # defaults to current time
+    address = {} # models can also have nested information
+
+# define a collection. You only need to specify the model
+class Users(VWCollection):
+    __model__ = User
+
+
+if __name__ == '__main__':
+    # create indexes
+    Mapper().create_indices() # creates all defined VWBase models
+
+    # create a model
+    user = User(
+        username='johndoe',
+        password=some_encrypt_method('password'),
+        email='johndoe@example.com',
+        permission_level='admin',
+        name='John Doe',
+        address={ 'street': '123 Some Street', 'city':'Somewhere','state':'TX','zip':'75000' }
+        )
+
+    # commit the info to the index
+    user.commit()
+
+    # (id is created automatically unless specified)
+
+    # data is retrieved using a collection class
+
+    # search for a user by id
+    user_by_id = Users().get(user.id)
+
+    # search by another field and return 1 
+    user_by_username = Users().filter_by(username='johndoe').one()
+
+    # search by multiple fields
+    user_by_fields = Users().filter_by(username='johndoe', email='johndoe@example.com').one()
+
+    # or chain search conditions together
+    user_by_fields = Users().filter_by(username='johndoe').filter_by(email='johndoe@example.com').one()
+
+    # specify boolean conditions. ( all() gets all related records for the page)
+    users = Users().filter_by(username='johndoe', email='quazimoto@example.com', condition='or').all()
+
+    # find out how many records match the criteria in the entire index
+    user_count = Users().filter_by(username='johndoe', email='quazimoto@example.com', condition='or').count()
+
+    # or using len()
+    user_count = len(Users().filter_by(username='johndoe', email='quazimoto@example.com', condition='or'))
+
+    # nested objects can automatically be searched as well
+    users = Users().filter_by(city='Somewhere').all()
+</code></pre>
+
+<p>Velociwrapper can do many more things. Read on!</p>
+
+<hr>
+
+<h2>
+<a id="dear-god-why" class="anchor" href="#dear-god-why" aria-hidden="true"><span class="octicon octicon-link"></span></a>Dear God, Why?</h2>
+
+<p>Like most things it started off as a useful tool and took on a life of its own.
+We had a ton of code written around SQLAlchemy but wanted the power and convience of
+ElasticSearch. We started off mapping results to objects and then added methods that make
+writing most searches easier.</p>
+
+<h2>
+<a id="configuration" class="anchor" href="#configuration" aria-hidden="true"><span class="octicon octicon-link"></span></a>Configuration</h2>
+
+<p><em>velociwrapper.config.dsn</em></p>
+
+<p>A list of nodes to connect to. Each node can be a string hostname or a dict with options. 
+See <a href="http://elasticsearch-py.readthedocs.org/en/master/api.html#elasticsearch.Elasticsearch">http://elasticsearch-py.readthedocs.org/en/master/api.html#elasticsearch.Elasticsearch</a> for valid values. 
+(sets the value of the <code>hosts</code> parameter).  Defaults to <code>localhost</code>.</p>
+
+<p><em>velociwrapper.config.connection_params</em></p>
+
+<p>A <code>dict</code> of additional parameters to pass to the client connection. 
+See <a href="http://elasticsearch-py.readthedocs.org/en/master/api.html#elasticsearch.Elasticsearch">http://elasticsearch-py.readthedocs.org/en/master/api.html#elasticsearch.Elasticsearch</a>
+Defaults to <code>{}</code></p>
+
+<p><em>velociwrapper.config.default_index</em></p>
+
+<p>A string index to use if it is not specified in the model. Defaults to <code>es_model</code></p>
+
+<p><em>velociwrapper.config.bulk_chunk_size</em></p>
+
+<p>A few calls such as <code>VWCollection.delete()</code>, <code>VWCollection.commit()</code>, or  <code>Mapper.reindex()</code> can act on
+large collections. The <code>bulk_chunk_size</code> tells Elasticsearch how many records to operate on at a time.
+Defaults to 1000</p>
+
+<p><em>velociwrapper.config.results_per_page</em></p>
+
+<p>For performance reasons Elasticsearch will not return large numbers of documents in a single call. As such
+return values are limited. This value is the default results but you can also pass the parameter to <code>all()</code>
+to change the result for a single value. Defaults to 50</p>
+
+<p><em>velociwrapper.config.strict_types</em></p>
+
+<p>Perform type checks when creating objects. When <code>True</code> velociwrapper will throw an exception if the value
+you're setting doesn't match the attribute's assigned type.</p>
+
+<p><strong>Configuration using environment variables</strong></p>
+
+<p>All configuration variables can be set via the environment. </p>
+
+<p><code>VW_DSN</code> maps to <code>dsn</code>. Can be a comma separated string or JSON</p>
+
+<p><code>VW_CONNECTION_PARAMS</code> maps to <code>connection_params</code>. Must be JSON</p>
+
+<p><code>VW_DEFAULT_INDEX</code> maps to <code>default_index</code>.  String</p>
+
+<p><code>VW_BULK_CHUNK_SIZE</code> maps to <code>bulk_chunk_size</code></p>
+
+<p><code>VW_RESULTS_PER_PAGE</code> maps to <code>results_per_page</code></p>
+
+<hr>
+
+<h2>
+<a id="types" class="anchor" href="#types" aria-hidden="true"><span class="octicon octicon-link"></span></a>Types</h2>
+
+<p>Elasticsearch is extremely flexible when it comes to adding types but less forgiving about changing them. To
+help with this we created a metaclass called <code>ESType</code> to define mappings used in Elasticsearch. The types are 
+used when <code>strict_types</code> is on and both the mapping options and types are used when creating or reindexing the
+indices.  The mapping options are set in the metaclass, otherwise the types subclass normal Python types and 
+are used the same way.</p>
+
+<p>Using Velociwrapper's types is completely optional. If you define the models using normal Python types, everything
+will work as expected. The biggest drawback is that Velociwrapper will not automatically be able to use filter
+syntax on <code>not_analyzed</code> string fields.</p>
+
+<p>All defaults in Velociwrapper's types are set to Elasticsearch's defaults:
+<a href="http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/mapping-core-types.html">http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/mapping-core-types.html</a></p>
+
+<p>In cases where the option begins with "_" Velociwrapper requires the underscore be appended rather than prepended.</p>
+
+<p><strong>Available Types</strong></p>
+
+<p><strong>String</strong> <em>([str],\</em>*kwargs)*</p>
+
+<p>Keyword args:</p>
+
+<ul>
+<li><code>analyzed</code></li>
+<li><code>norms</code></li>
+<li><code>index_options</code></li>
+<li><code>analyzer</code></li>
+<li><code>index_analyzer</code></li>
+<li><code>search_analyzer</code></li>
+<li><code>ignore_above</code></li>
+<li><code>position_offset_gap</code></li>
+<li><code>value_</code></li>
+<li><code>boost_</code></li>
+</ul>
+
+<p>The <code>analyzed</code> argument maps to <code>index=analyzed|not_analyzed</code> default is <code>analyzed</code></p>
+
+<p><strong>Number</strong> <em>([number], \</em>*kwargs)*</p>
+
+<p>Generic number type. Normally you should use the number type classes that derive from this. If <code>type</code> is omitted
+defaults to <code>float</code></p>
+
+<p>Keyword args:</p>
+
+<ul>
+<li><code>type</code></li>
+<li><code>index_</code></li>
+<li><code>precision_step</code></li>
+<li><code>ignore_malformed</code></li>
+<li><code>coerce</code></li>
+</ul>
+
+<p>The following types use the same arguments (except for type which is specified automatically)</p>
+
+<ul>
+<li>
+<code>Float</code> <em>([float], \</em>*kwargs)*</li>
+<li>
+<code>Integer</code> <em>([int], \</em>*kwargs)*</li>
+<li>
+<code>Long</code> <em>([float], \</em>*kwargs)*</li>
+<li>
+<code>Short</code> <em>([float], \</em>*kwargs)*</li>
+<li>
+<code>Byte</code> <em>([float], \</em>*kwargs)*</li>
+<li>
+<code>Tokencount</code> <em>([number],\</em>*kwargs)*</li>
+</ul>
+
+<p><strong>Date</strong> <em>([date|str] | [year int, month int, day int], \</em>*kwargs)* and <strong>DateTime</strong> <em>([datetime|str] | [year int, month int, day int, [hour int, [minute int,[second int, [microsecond int]]]]], \</em>*kwargs)*</p>
+
+<p>Keyword args:</p>
+
+<ul>
+<li><code>format</code></li>
+<li><code>precision_step</code></li>
+<li><code>ignore_malformed</code></li>
+</ul>
+
+<p><strong>Array</strong> - new in 1.0.8</p>
+
+<p>Special type that specifies a list of items that are a single type. Accepts any keyword argument above. <code>type_</code> keyword specifies the type to be used. Default is string</p>
+
+<p><strong>Binary</strong> <em>()</em></p>
+
+<p>Experimental. Keyword arguments:</p>
+
+<ul>
+<li><code>compress</code></li>
+<li><code>compress_threshold</code></li>
+</ul>
+
+<p><strong>IP</strong> <em>([str])</em></p>
+
+<p>Keyword args:</p>
+
+<ul>
+<li><code>precision_step</code></li>
+</ul>
+
+<p><strong>GeoShape</strong> / <strong>GeoPoint</strong></p>
+
+<p>Experimental. Will work as regular objects as well.</p>
+
+<hr>
+
+<h2>
+<a id="type-functions" class="anchor" href="#type-functions" aria-hidden="true"><span class="octicon octicon-link"></span></a>Type Functions</h2>
+
+<p><strong>create_es_type</strong> <em>(value)</em></p>
+
+<p>Takes <code>value</code> and returns the equivalent Elasticsearch type. If an appropriate type cannot be determined then the value itself is returned.</p>
+
+<hr>
+
+<h2>
+<a id="models" class="anchor" href="#models" aria-hidden="true"><span class="octicon octicon-link"></span></a>Models</h2>
+
+<p>Create a model by defining the name of the model and extending <code>VWBase</code> (or a subclass of <code>VWBase</code>).
+Properties for the model should be statically defined. They can be ESTypes as described above or as regular
+Python types. Values set in the model are defaults in each instance.</p>
+
+<p>The <code>__type__</code> attribute is required and maps to the Elasticsearch <code>doctype</code>. <code>__index__</code> is recommended
+but if it is not present then the value of <code>velociwrapper.config.default_index</code> is used.</p>
+
+<p>Example:</p>
+
+<p>::</p>
+
+<pre><code>class User(VWBase):
+    __index__ = 'user_index'
+    __type__ = 'user'
+    username = String(analyzed=False)
+    password = String(analyzed=False)
+    email = String(analyzed=False)
+    name = String()
+    profile_image = String('default.jpg')
+</code></pre>
+
+<p>Or without using ESTypes:</p>
+
+<p>::</p>
+
+<pre><code>class User(VWBase):
+    __index__ = 'user_index'
+    __type__ = 'user'
+    username = ''
+    password = ''
+    email = ''
+    name = ''
+    profile_image = ''
+</code></pre>
+
+<p>The added benefit of using ESTypes is specifying the mappings. This helps velociwrapper know what kind of searches to build
+and can create the mappings for you, if you haven't specified them yourself.</p>
+
+<p>Once models are created they must be committed to save into the Elasticsearch cluster</p>
+
+<p>::</p>
+
+<pre><code>u = User(
+    username='jsmith', 
+    password=crypt_method('password123'), 
+    email='jsmith@example.com', 
+    name='John Smith', 
+    profile_image='jsmith.jpg'
+    )
+
+u.commit()
+</code></pre>
+
+<p>The call to <code>commit()</code> generates an id for the document. If you want to explicitly set the id first, you can set the id attribute:</p>
+
+<p>::</p>
+
+<pre><code>u = User( ... )
+u.id = 'my-unique-id'
+u.commit()
+</code></pre>
+
+<p><em>Be careful!</em>. IDs have to be unique across all types in your index. If your ID is not unique, the ID specified will be updated by
+your new data. It is recommended to let Velociwrapper handle ID creation unless you're certain of what you're doing.</p>
+
+<p><strong>Model API</strong></p>
+
+<p><strong>commit</strong> <em>()</em></p>
+
+<p>Commits the model to Elasticsearch. New models will be created as new documents. Existing models will be updated.</p>
+
+<p><strong>delete</strong> <em>()</em></p>
+
+<p>Deletes the cooresponding document from Elasticsearch. New operations cannot be performed on the model once it is marked
+for delete.</p>
+
+<p><strong>sync</strong> <em>()</em></p>
+
+<p>Syncs the document in Elasticsearch to the model. Overwrites any uncommitted changes.</p>
+
+<p><strong>to_dict</strong> <em>()</em></p>
+
+<p>Converts the model to a dictionary. Very useful for outputting models to JSON web services. This method is intended to be overridden for
+custom output.</p>
+
+<p><strong>more_like_this</strong> <em>()</em></p>
+
+<p>Performs a search to get documents that are "like" the current document. Returns a VWCollectionGen.</p>
+
+<hr>
+
+<h2>
+<a id="collections" class="anchor" href="#collections" aria-hidden="true"><span class="octicon octicon-link"></span></a>Collections</h2>
+
+<p>Collections are used to search and return collections of models. Searches can be chained together to create complex queries of Elasticsearch
+(much like SQLAlchemy). Currently collections are of one document type only. This may change in a future release.</p>
+
+<p>Example:</p>
+
+<p>::</p>
+
+<pre><code># all users named john
+users = Users().filter_by(name='John').all()
+
+# users named john who live in texas
+users = Users().filter_by(name='John', state='TX').all()
+
+# another way to write the same as above
+users = Users().filter_by(name='John').filter_by(state='TX').all()
+</code></pre>
+
+<p>By default chained criteria are joined with "AND" ("must" in most cases internally). But can be controlled:</p>
+
+<p>::</p>
+
+<pre><code># users who live in texas or are named john:
+users = Users().filter_by(name='John', state='TX', condition='or').all()
+</code></pre>
+
+<p>For more complex queries see the <code>raw()</code> method and the QDSL module.</p>
+
+<p><strong>Creating Collections</strong></p>
+
+<p>Collections can be created on the fly by creating a VWCollection instance and setting <code>baseobj</code> to the appropriate
+model. <code>baseobj</code> must be a subclass of <code>VWBase</code></p>
+
+<p>::</p>
+
+<pre><code>users = VWCollection(baseobj=User)
+</code></pre>
+
+<p>The better way to create a collection is to define it with your model. Subclass VWCollection and set the <strong>model</strong> property</p>
+
+<p>::</p>
+
+<pre><code>class Users(VWCollection):
+    __model__ = User
+</code></pre>
+
+<p><strong>Conditions</strong></p>
+
+<p>Conditions in Elasticsearch are a little tricky. Internally the <code>bool</code> queries / filters are used. Instead of the traditional
+<code>and</code>, <code>or</code>, <code>not</code>. Elasticsearch uses <code>must</code>, <code>should</code> and <code>must_not</code>. To make things a bit more interesting the
+traditional boolean values exist as well and Elasticsearch recommends they be used is certain cases (such as geo filters) 
+Velociwrapper converts <code>and</code>, <code>or</code>, <code>not</code> to the Elasticsearch equivalents except in the case of <code>search_geo()</code>.</p>
+
+<p>The <code>must</code>, <code>should</code>, <code>must_not</code> options can be used instead and will work. <code>minimum_should_match</code> is also available. If 
+the explicit options are needed you can use <code>explicit_and</code>, <code>explicit_or</code>, and <code>explicit_not</code>.</p>
+
+<p>Conditions can become complex very quickly. Velociwrapper tries to take a "do what I mean" approach to chained conditions. First
+the current filter is checked for a specific condition. If no condition exists then the <em>preceeding</em> condition is used. If there
+is no preceeding condition, the condition is set to and/must by default.</p>
+
+<p>Examples:</p>
+
+<p>::</p>
+
+<pre><code># get users in named John or Stacy  
+users = Users().filter_by(name='John').filter_by(name='Stacy', condition='or').all()
+
+# equivalent because the second filter_by() will use the preceeding or condition:
+users = Users().filter_by(name='John', condition='or').filter_by(name='Stacy').all()
+
+# add another condition, such as state, might not always do what we expect. This would return anyone
+# who's name is stacy or john or lives in Texas
+users = Users().filter_by(name='John').filter_by(name='Stacy', condition='or').filter_by(state='TX').all()
+
+# (john or stacy) and state
+users = Users().filter_by(name='John').filter_by(name='Stacy', condition='or').filter_by(state='TX',condition='and').all()
+</code></pre>
+
+<p>Obviously order matters. For more complex queries the other option is to use the <code>raw()</code> method and the QDSL module (see below)</p>
+
+<p><strong>API</strong></p>
+
+<p>Methods marked chainable internally change the search query to affect the output on <code>all()</code>, <code>delete()</code>, and <code>one()</code>. Chainable methods can be
+called multiple times with different parameters.</p>
+
+<p><strong>all</strong> <em>(\</em>*kwargs)*</p>
+
+<p>Executes the current search and returns <code>results_per_page</code> results. (default 50). <code>results_per_page</code> is specified in <code>velociwrapper.config.results_per_page</code>
+but can also be specified by keyword arguments. </p>
+
+<p>If no search has been specified, Velociwrapper will call <code>match_all</code>.</p>
+
+<p>If no results are matched <code>all()</code> returns an empty VWCollectionGen.</p>
+
+<p>Arguments:</p>
+
+<ul>
+<li>
+<code>results_per_page</code> <em>int</em>: number of results to return</li>
+<li>
+<code>size</code> <em>int</em>: same as results_per_page</li>
+<li>
+<code>start</code> <em>int</em>: Record count to start with</li>
+</ul>
+
+<p><strong>clear_previous_search</strong> <em>()</em></p>
+
+<p>Clear all search parameters and reset the object. Even after a call to an output method the search can be output again. This allows the collection to be reused.
+Generally its better to create a new object.</p>
+
+<p><strong>commit</strong> <em>([callback=callable])</em></p>
+
+<p>Bulk commits a list of items specified on <code>__init__()</code> or if no items were specified will bulk commit against the items matched in the current search. (be careful! Calling something like Users().commit() will commit all users!)</p>
+
+<p>The <code>callback</code> argument should be a callable. The raw item will be passed to it and it must return either a <code>dict</code> or a <code>VWBase</code> 
+(model) object.  Note that velociwrapper does not call each model's <code>commit()</code> or <code>to_dict()</code> methods but rather issues the request
+in bulk. Thus you cannot affect the behavior by overriding these methods. Use the <code>callback</code> to make changes or change the items before
+passing them to the collection.</p>
+
+<p>As of 2.0 it is also possible to register a callback to manipulate items in the commit. See "Callbacks".</p>
+
+<p><strong>count</strong> <em>()</em></p>
+
+<p>Returns the total number of documents matched (not that will be returned!) by the search. </p>
+
+<p><strong>delete</strong> <em>(\</em>*kwargs)*</p>
+
+<p>Delete the records specified by the search query.</p>
+
+<p><strong>delete_in</strong> <em>(ids=list)</em></p>
+
+<p>Delete the records specified by a list of ids. Equivalent to:</p>
+
+<p>::</p>
+
+<pre><code>Users().filter_by(ids=list_of_ids).delete()
+</code></pre>
+
+<p><strong>exact</strong> <em>(field=str, value=mixed)</em></p>
+
+<p>Chainable. Find records where <code>field</code> is the exact <code>value</code>. String based fields <strong>must</strong> be specified as <code>not_analyzed</code> in the index. Otherwise results
+may not be as expected.  <code>exact()</code> is more for completeness. <code>filter_by()</code> uses exact values when available. The only difference is <code>exists()</code>
+will warn if the field cannot be searched while <code>filter_by()</code> silently converts to a query.</p>
+
+<p>Keyword arguments:</p>
+
+<ul>
+<li>
+<code>boost</code> <em>float</em>: An explicit boost value for this boolean query</li>
+<li>
+<code>condition</code> <em>str</em>: "and","or","not","explicit_and","explicit_or","explicit_not",</li>
+<li>
+<code>minimum_should_match</code> <em>int</em>: When executing a should (or) query, specify the number of options that should match to return the document. Default = 1</li>
+<li>
+<code>with_explicit</code> <em>str</em>: "and","or","not". Only used if explicit conditions exist and there's a question of how an additional condtion should be added to the query. </li>
+</ul>
+
+<p><strong>exists</strong> <em>(field, [kwargs])</em></p>
+
+<p>Chainable. Find records if the specified field exists is the document.</p>
+
+<p>Keyword arguments:</p>
+
+<ul>
+<li>
+<code>boost</code> <em>float</em>: An explicit boost value for this boolean query</li>
+<li>
+<code>condition</code> <em>str</em>: "and","or","not","explicit_and","explicit_or","explicit_not",</li>
+<li>
+<code>minimum_should_match</code> <em>int</em>: When executing a should (or) query, specify the number of options that should match to return the document. Default = 1</li>
+<li>
+<code>with_explicit</code> <em>str</em>: "and","or","not". Only used if explicit conditions exist and there's a question of how an additional condtion should be added to the query. </li>
+</ul>
+
+<p><strong>filter_by</strong> <em>([condition], kwargs)</em></p>
+
+<p>Chainable. Filter or query elasticsearch for <code>field="search"</code>. Automatically creates filters or queries based on field mappings. If the <code>search</code> parameter is a list, filter_by will create
+an <code>in()</code> filter / query. <code>condition</code> can be set as the first argument or passed as a keyword argument.</p>
+
+<p>Keyword arguments</p>
+
+<ul>
+<li>
+<code>[field]</code> <em>str</em>: A field in the document set to the value to try to find.</li>
+<li>
+<code>id</code> <em>value</em>: Explicitly search for particular id. </li>
+<li>
+<code>ids</code> <em>list</em>: Explicitly search for using a list of ids. </li>
+<li>
+<code>boost</code> <em>float</em>: An explicit boost value for this boolean query</li>
+<li>
+<code>condition</code> <em>str</em>: "and","or","not","explicit_and","explicit_or","explicit_not",</li>
+<li>
+<code>minimum_should_match</code> <em>int</em>: When executing a should (or) query, specify the number of options that should match to return the document. Default = 1</li>
+<li>
+<code>with_explicit</code> <em>str</em>: "and","or","not". Only used if explicit conditions exist and there's a question of how an additional condtion should be added to the query. </li>
+</ul>
+
+<p><strong>multi_match</strong> <em>(fields=list,query=str,\</em>*kwargs)*</p>
+
+<p>Chainable. Search the list of fields for the value of query. Accepts standard kwargs arguments.</p>
+
+<p><strong>get</strong> <em>(id=value)</em></p>
+
+<p>Returns the single record specified by <code>id</code> or <code>None</code> if it does not exist.</p>
+
+<p><strong>get_in</strong> <em>(ids=list)</em></p>
+
+<p>Returns a list of records specified by the list of ids or an empty list if no ids exist. Note this method cannot be sorted. If sorting is needed it is better to call</p>
+
+<p>::</p>
+
+<pre><code>filter_by(ids=list).sort(...).all()
+</code></pre>
+
+<p><strong>get_like_this</strong> <em>(id)</em></p>
+
+<p>Returns records like the document specified by id or an empty list if none exists. Note this method cannot be sorted.</p>
+
+<p><strong><strong>init</strong></strong> <em>([items=list],[\</em>*kwargs])*</p>
+
+<p>Create a collection. If <code>items</code> are specified they are stored internally to <code>commit()</code> in bulk. Stored items must be models (subclassing <code>VWBase</code>) or <code>dict</code>.</p>
+
+<p>Keyword arguments:</p>
+
+<ul>
+<li>
+<code>bulk_chunk_size</code> <em>int</em>: override default chunk size for this collection</li>
+<li>
+<code>results_per_page</code> <em>int</em>
+</li>
+</ul>
+
+<p><strong><strong>len</strong></strong> <em>()</em></p>
+
+<p>Same as <code>count()</code>. Allows for the entire collection to be passed to <code>len()</code></p>
+
+<p><strong>missing</strong> <em>(field=str,\</em>*kwargs)*</p>
+
+<p>Chainable. Finds records where the specified <code>field</code> is missing</p>
+
+<p>Keyword arguments:</p>
+
+<ul>
+<li>
+<code>boost</code> <em>float</em>: An explicit boost value for this boolean query</li>
+<li>
+<code>condition</code> <em>str</em>: "and","or","not","explicit_and","explicit_or","explicit_not",</li>
+<li>
+<code>minimum_should_match</code> <em>int</em>: When executing a should (or) query, specify the number of options that should match to return the document. Default = 1</li>
+<li>
+<code>with_explicit</code> <em>str</em>: "and","or","not". Only used if explicit conditions exist and there's a question of how an additional condtion should be added to the query. </li>
+</ul>
+
+<p><strong>one</strong> <em>()</em></p>
+
+<p>Executes the search and returns the first record only. Raises <code>NoResultFound</code> is the search did not match any documents.</p>
+
+<p><strong>range</strong> <em>(field=str, \</em>*kwargs)*</p>
+
+<p>Chainable. Filters the results by a range of values in <code>field</code>. The keyword arguments coorespond to arguments used by the range filter
+in Query DSL: <a href="http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-range-query.html">http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-range-query.html</a></p>
+
+<p>Other search keywords are available except for <code>boost</code>. <code>boost</code> affects the range query itself. Keyword arguemtns are:</p>
+
+<ul>
+<li>
+<code>gte</code> <em>number or date</em>: greater than or equal</li>
+<li>
+<code>gt</code> <em>number or date</em>: greater than</li>
+<li>
+<code>lte</code> <em>number or date</em>: less than or equal</li>
+<li>
+<code>lt</code> <em>number or date</em>: less than</li>
+<li>
+<code>boost</code> <em>float</em>: boost value for the range query itself</li>
+<li>
+<code>time_zone</code> <em>str</em>: timezone offset. Only used if comparison is a date and doesn't contain a timezone offset already.</li>
+<li>
+<code>condition</code> <em>str</em>: "and","or","not","explicit_and","explicit_or","explicit_not",</li>
+<li>
+<code>minimum_should_match</code> <em>int</em>: When executing a should (or) query, specify the number of options that should match to return the document. Default = 1</li>
+<li>
+<code>with_explicit</code> <em>str</em>: "and","or","not". Only used if explicit conditions exist and there's a question of how an additional condtion should be added to the query. </li>
+</ul>
+
+<p><strong>raw</strong> <em>(rawquery=dict)</em></p>
+
+<p>Execute a raw Query DSL query.  Chainable but all other search filters are ignored. Can still be used with <code>sort()</code>.</p>
+
+<p><em>**search</em>* <em>(query=string)</em></p>
+
+<p>Execute a Lucene query against the server. Chainable.</p>
+
+<p><strong>search_geo</strong> <em>(field=str,distance=float,lat=float,lon=float,\</em>*kwargs)*</p>
+
+<p>Chainable. Filter the search based on distance from a geopoint.</p>
+
+<ul>
+<li>
+<code>boost</code> <em>float</em>: An explicit boost value for this boolean query</li>
+<li>
+<code>condition</code> <em>str</em>: "and","or","not","explicit_and","explicit_or","explicit_not",</li>
+<li>
+<code>minimum_should_match</code> <em>int</em>: When executing a should (or) query, specify the number of options that should match to return the document. Default = 1</li>
+<li>
+<code>with_explicit</code> <em>str</em>: "and","or","not". Only used if explicit conditions exist and there's a question of how an additional condtion should be added to the query. </li>
+</ul>
+
+<p><strong>sort</strong> <em>(\</em>*kwargs)*</p>
+
+<p>Chainable (and can appear anywhere before an output method, including by having other filters changed to it). Arguments are <code>field=asc|desc</code>. <code>asc</code> sorts the field
+first to last. <code>desc</code> sorts the field last to first. <code>asc</code> is the default.</p>
+
+<hr>
+
+<h2>
+<a id="query-bodies-with-querybuilderquerybody-" class="anchor" href="#query-bodies-with-querybuilderquerybody-" aria-hidden="true"><span class="octicon octicon-link"></span></a>Query Bodies with <code>querybuilder.QueryBody</code> </h2>
+
+<p>Underlying chainable methods is the <code>querybuilder.QueryBody</code> class. This class helps build simple query bodies
+for Elasticsearch but attempts not to get too crazy. It stores an internal structure of the query and then
+builds it into a <code>dict</code> that can be passed to the underlying Elasticsearch client.  The class is used internally
+by <code>VWCollection</code> but you could use it directly to build queries to then pass to the <code>raw()</code> method.</p>
+
+<p><code>QueryBody</code> only supports queries and filters. For other wrappers, such as constant_score, you'll need to manually
+build the queries by hand or with the <code>QDSL</code> functions described below.</p>
+
+<p><strong>QueryBody methods</strong></p>
+
+<p><strong>chain</strong> <em>(self, newpart=dict, \</em>*kwargs)*</p>
+
+<p>Chains a new part of the query into the existing query. Newpart must be a <code>dict</code> with additional query parameters
+to pass to Elasticsearch. Note that <code>newpart</code> is not checked for correctness. </p>
+
+<p>Returns <code>self</code> so additional methods can be called. </p>
+
+<p>Keyword Arguments:</p>
+
+<ul>
+<li>
+<code>type</code> <em>string</em>: either "query" or "filter". If not specified checks <code>newpart</code> for one of these keywords. Otherwise uses "query"</li>
+<li>
+<code>condition</code> <em>string</em>: must|should|must_not|and|or|not. Defaults to "must". Specifies how this part of the query is treated in relation to the existing query</li>
+<li>
+<code>with_explicit</code> <em>string</em>: and|or|not. Included for legacy purposes. Overrides <code>condition</code> and is useful if a nested bool was manually created. Generally should not be used.</li>
+</ul>
+
+<p><strong>is_filtered</strong> <em>(self)</em></p>
+
+<p>Returns <code>True</code> if the current query body contains a filter.</p>
+
+<p><strong>is_query</strong> <em>(self)</em></p>
+
+<p>Returns <code>True</code> is the current query body contains a query other than <code>match_all {}</code></p>
+
+<p><strong>build</strong> <em>(self)</em></p>
+
+<p>Builds the current query into a representation understood by Elasticsearch. Returns <code>dict</code></p>
+
+<hr>
+
+<h2>
+<a id="qdsl-and-building-raw-queries" class="anchor" href="#qdsl-and-building-raw-queries" aria-hidden="true"><span class="octicon octicon-link"></span></a>QDSL and Building Raw Queries</h2>
+
+<p><code>velociwrapper.qdsl</code> contains functions to help make writing QDSL easier.</p>
+
+<p><strong>QDSL Functions</strong></p>
+
+<p><strong>query</strong> <em>(params=dict)</em></p>
+
+<p>Returns <code>params</code> wrapped by <code>{ "query": params }</code></p>
+
+<p><strong>filter_</strong> <em>(params=dict)</em></p>
+
+<p>Returns <code>params</code> wrapped by <code>{ "filter": params }</code>.</p>
+
+<p>Note the "<em>" appended to ``filter</em><code>to prevent confusion with Python's</code>filter()``</p>
+
+<p><strong>match</strong> <em>(field=str,value=str|dict,\</em>*kwargs)*</p>
+
+<p>Returns <code>{"match": { field: { "query": value } } }</code></p>
+
+<p>Additional keyword arguments should be Elasticsearch arguments on <code>match</code></p>
+
+<p><strong>match_phrase</strong> <em>(field=str,value=str|dict,\</em>*kwargs)*</p>
+
+<p>Equivalent to <code>match(field,value,type="phrase")</code></p>
+
+<p><strong>match_phrase_prefix</strong> <em>(field=str,value=str|dict,\</em>*kwargs)*</p>
+
+<p>Equivalent to <code>match(field,value,type="phrase_prefix")</code></p>
+
+<p><strong>multi_match</strong> <em>(query=str|dict, fields=list,\</em>*kwargs)*</p>
+
+<p>Returns <code>{"multi_match": {"query": query, "fields": fields } }</code></p>
+
+<p>Additional keyword arguments should be Elasticsearch arguments on <code>multi_match</code></p>
+
+<p><strong>bool</strong> <em>(\</em>args,**kwargs)*</p>
+
+<p>Args are any number of dicts containing "must", "should" or "must_not" keys. Keyword arguments
+are Elasticsearch options for <code>bool</code> such as <code>minimum_should_match</code></p>
+
+<p>Example:</p>
+
+<p>::</p>
+
+<pre><code>from velociwrapper.qdsl import bool, must, must_not, match
+mybool = bool(
+    must( match('foo','some value') ), 
+    must_not( match( 'bar', 'some other value' ) )
+)
+</code></pre>
+
+<p>Special Keyword arguments</p>
+
+<ul>
+<li>
+<em>__vw_set_current</em> <em>dict</em>: set a current <code>bool</code> dictionary that will be updated rather than creating a blank one.</li>
+</ul>
+
+<p><strong>must</strong> <em>(params=str|dict, value=str|dict|None,\</em>*kwargs)*</p>
+
+<p>Creates a <code>must</code> arguement for <code>bool</code>. If params is a <code>dict</code> then it is passed on directly. If it is a string or value
+is set then the params are treated as a field name and passed to <code>term</code>.</p>
+
+<p>Example:</p>
+
+<p>::</p>
+
+<pre><code>must( match('foo', 'some value' ) )
+# returns { "must": { "match": { "foo": {"query": "some value" } } } }
+
+must('foo', 'some value' ) )
+# returns { "must": { "term" { "foo": {"value": "some value" } } } }
+</code></pre>
+
+<p><strong>must_not</strong> <em>(params=str|dict,value=str|dict|None,\</em>*kwargs)*</p>
+
+<p>Like <code>must</code> but uses "must_not"</p>
+
+<p><strong>should</strong> <em>(params=str|dict,value=str|dict|None,\</em>*kwargs)*</p>
+
+<p>Like <code>must</code> but uses "should"</p>
+
+<p><strong>term</strong> <em>(field=str, value=str,\</em>*kwargs)*</p>
+
+<p>Like <code>match</code> but for filters</p>
+
+<p><strong>terms</strong> <em>(field=str,value=list,\</em>*kwargs)*</p>
+
+<p>Like <code>term</code> but values are a list of strings to match in a field.</p>
+
+<p><strong>boosting</strong> <em>(\</em>args, **kwargs)*</p>
+
+<p>Similar to <code>bool</code> allows any number of dicts with the key <code>positive</code> or <code>negative</code>. Keyword arguments are options
+passed to <code>boosting</code></p>
+
+<p><strong>positive</strong> <em>(field,value)</em></p>
+
+<p>Returns <code>{ "positive": { "term": { field: value } } }</code></p>
+
+<p><strong>negative</strong> <em>(field,value)</em></p>
+
+<p>Returns <code>{ "negative": {"term": { field:value } } }</code></p>
+
+<p><strong>common</strong> <em>(field, value, \</em>*kwargs)*</p>
+
+<p>Returns <code>{ "common": { field: { "query": value } } }</code></p>
+
+<p>Keyword arguments are passed as additional key values to the <code>field</code> dict.</p>
+
+<p><strong>constant_score</strong> <em>(\</em>args, **kwargs)*</p>
+
+<p>Arguments should be <code>dict</code>. A single argument is wrapped directly by <code>constant_score</code>. In the case of multiple arguments the function searches each
+for <code>query</code> or <code>filter</code> keys to wrap in the output.</p>
+
+<p><strong>filtered</strong> <em>(\</em>args, **kwargs)*</p>
+
+<p>Arguments should be <code>dict</code>. A single argument is wrapped directly by <code>filtered</code>. In the case of multiple arguments the function searches each
+for <code>query</code> or <code>filter</code> keys to wrap in the output.</p>
+
+<p>Additional keyword arguments are set on the <code>filtered</code> dict.</p>
+
+<p><strong>function_score</strong> <em>(\</em>args, **kwargs)*</p>
+
+<p>Arguments should be <code>dict</code>. A single argument is wrapped directly by <code>function_score</code>. In the case of multiple arguments the function searches each
+for <code>query</code>, <code>filter</code>, <code>FUNCTION</code>, or <code>functions</code> keys to wrap in the output. No magic happens here to check the validity of the functions!</p>
+
+<p>Keyword arguments are set on the <code>function_score</code> dict.</p>
+
+<p><strong>fuzzy</strong></p>
+
+<p><strong>ids</strong></p>
+
+<p><strong>query_term</strong></p>
+
+<p><strong>indices</strong></p>
+
+<p><strong>match_all</strong></p>
+
+<p><strong>more_like_this</strong></p>
+
+<p><strong>nested</strong></p>
+
+<p><strong>prefix</strong></p>
+
+<p><strong>query_string</strong></p>
+
+<p><strong>simple_query_string</strong></p>
+
+<p><strong>range</strong></p>
+
+<p><strong>regexp</strong></p>
+
+<p><strong>span_term</strong></p>
+
+<p><strong>span_first</strong></p>
+
+<p><strong>span_multi</strong></p>
+
+<p><strong>span_near</strong></p>
+
+<p><strong>span_not</strong></p>
+
+<p><strong>span_or</strong></p>
+
+<p><strong>wildcard</strong></p>
+
+<p><strong>and_</strong></p>
+
+<p><strong>or_</strong></p>
+
+<p><strong>not_</strong></p>
+
+<p><strong>exists</strong></p>
+
+<p><strong>geo_bounding_box</strong></p>
+
+<p><strong>geo_distance</strong></p>
+
+<p><strong>geo_range</strong></p>
+
+<p><strong>geo_polygon</strong></p>
+
+<p><strong>geo_shape</strong></p>
+
+<p><strong>geohash_cell</strong></p>
+
+<p><strong>has_child</strong></p>
+
+<p><strong>has_parent</strong></p>
+
+<p><strong>missing</strong></p>
+
+<p><strong>script</strong></p>
+
+<p><strong>type_</strong></p>
+
+<hr>
+
+<h2>
+<a id="mapper" class="anchor" href="#mapper" aria-hidden="true"><span class="octicon octicon-link"></span></a>Mapper</h2>
+
+<p>Use the mapper by importing it:</p>
+
+<p>::</p>
+
+<pre><code>from velociwrapper.mapper import Mapper
+</code></pre>
+
+<p>The Mapper class has utilities for managing the Elasticsearch index.</p>
+
+<p><strong>Mapper API</strong></p>
+
+<p><strong>get_index_map</strong> <em>(\</em>*kwargs)*</p>
+
+<p>Searches for currently loaded VWBase models and returns the their indexes as defined by code, along with their mappings. The only keyword argument is <code>index</code>, passed to specify 
+a particular index or group of indexes (must be a <code>str</code> or <code>list</code>).</p>
+
+<p><strong>get_server_map</strong> <em>(\</em>*kwargs)*</p>
+
+<p><em>New in version 1.0.10</em>. Like <em>get_index_map()</em>, but returns the mapping as saved on the server.</p>
+
+<p><strong>create_indices</strong> <em>(\</em>*kwargs)*</p>
+
+<p>Creates indexes based on currently loaded VWBase models or for the index or indexes specified by the <code>index</code> keyword argument.</p>
+
+<p><strong>get_index_for_alias</strong> <em>(alias=str)</em></p>
+
+<p>Return the name of the index for the specified <code>alias</code>. If <code>alias</code> is an index, then the same name will be returned.</p>
+
+<p><strong>reindex</strong> <em>(index=str,newindex=str,\</em>*kwargs)*</p>
+
+<p>Re-indexes the specified index to a new index. Useful for making model changes and then creating them in Elastic search</p>
+
+<p>Keyword arguments</p>
+
+<ul>
+<li>
+<code>alias_name</code> <em>string</em>: specify a new alias name when re-mapping an alias. If omitted the previous alias name is used.</li>
+<li>
+<code>remap_alias</code> <em>bool</em>: Aliases the index under a new name. Useful for making on-the-fly changes</li>
+</ul>
+
+<p><strong>describe</strong> <em>(cls=class)</em></p>
+
+<p>Output the index mapping for a VWBase class.</p>
+
+<hr>
+
+<h2>
+<a id="callbacks" class="anchor" href="#callbacks" aria-hidden="true"><span class="octicon octicon-link"></span></a>Callbacks</h2>
+
+<p>There are several events built-in to Velociwrapper on which you can register callbacks. 
+Callbacks are registered at the class level so all instances will have the callback. You 
+can also register multiple methods for the same event. Callbacks recieve the instance and 
+a single (optional) argument. The argument is returned. In the case of multiple callbacks 
+on an event, the callbacks are fired in the order they were registered. The return value 
+from one method is passed to the next as the argument.</p>
+
+<p>Example:</p>
+
+<p>::</p>
+
+<pre><code>from your_models import Document
+
+# check a user for entry in another database
+def doc_database_check( vwinst, argument=None ):
+    if not doc_in_database(vwinst.id):
+        insert_into_database( vwinst.id, vwinst.name, vwinst.content ) # or whatever
+        return argument 
+
+Document.register_callback( 'after_commit', doc_database_check )
+</code></pre>
+
+<p>Callbacks are defined in the <code>VWCallback</code> class in base.py. <code>VWCollection</code> and <code>VWBase</code> 
+derive from <code>VWCallback</code></p>
+
+<p><strong>Callback API</strong></p>
+
+<p><strong>register_callback</strong> <em>(cls, callback_event=str, callback=callable)</em> <em>- classmethod</em></p>
+
+<p>Register a callback for the event <em>callback_event</em> on the collection or base class. This is a class method,
+the callback becomes active on all instances.</p>
+
+<p><strong>deregister_callback</strong> <em>(cls, callback_event=str, callback=callable|str)</em> <em>- classmethod</em></p>
+
+<p>Deregister a callback for the event <em>callback_event</em> by its name or original function <em>callback</em>. Returns None
+even if there was not a callback by the name or for the event.</p>
+
+<p><strong>execute_callbacks</strong> <em>(self, event=string, argument=None, \</em>*kwargs)*</p>
+
+<p>Executes the current instances callbacks for <em>event</em> in the order they were registered. Returns <em>argument</em>.
+If no callback was registered for the event the method returns <em>None</em></p>
+
+<p><strong>Available Events</strong></p>
+
+<p><em>before_manual_create_model</em></p>
+
+<p>Executed when a model instance is created directly but not when the model is created as the result of a search.
+<em>argument</em> is ignored, only the model's instance is passed. The event fires before mapping information is copied
+from the class and before the id is created.  An example use is a custom ID creation method.</p>
+
+<p><em>after_manual_create_model</em></p>
+
+<p>Executed when a model instance is created directly but not when the model is created as the result of a search.
+<em>argument</em> is ignored, only the model's instance is passed. The event fires after the class variables are copied
+to the instance, <em>id</em> is created, and the <em><strong>index</strong></em> is set.</p>
+
+<p><em>on_delete</em></p>
+
+<p>Executed when <code>commit()</code> is called on a deleted instance. Fires just before the underlying DELETE to Elasticsearch.
+Argument is ignored. Does not execute on a bulk delete call in <code>VWCollection</code>.</p>
+
+<p><em>before_commit</em></p>
+
+<p>Executed before the INDEX call to Elasticsearch. The argument is ignored. Does not execute on bulk commit calls in
+<code>VWCollection</code>.</p>
+
+<p><em>after_commit</em></p>
+
+<p>Executed after the INDEX call to Elasticsearch. The argument is ignored. Does not execute on bulk commit calls in
+<code>VWCollection</code>.</p>
+
+<p><em>before_sync</em></p>
+
+<p>Executed before retrieveing the underlying document from Elasticsearch to sync the object. The argument is ignored. </p>
+
+<p><em>after_sync</em></p>
+
+<p>Executed after variables from Elasticsearch have overwritten object attributes. The argument is ignored.</p>
+
+<p><em>before_query_build</em></p>
+
+<p>Executed just before a search query is created. The argument is the current <code>QueryBody</code>.</p>
+
+<p><em>after_query_build</em></p>
+
+<p>Executes after the search query is created as a <code>dict</code>. The argument is the <code>dict</code> to be passed to the Elasticsearch client.</p>
+
+<p><em>on_bulk_commit</em></p>
+
+<p>Executes for each item before being appended to a bulk commit operation. The argument is the item. The item can be a 
+<code>dict</code> source document or a <code>VWBase</code> object depending on what was passed to the collections items. (If the commit
+criteria was a search query then <code>VWBase</code> objects are passed.</p>
+
+<p><em>before_auto_create_model</em></p>
+
+<p>Executes after a source document is retrieved from Elasticsearch but before the document is converted to a model
+instance. Note this does not fire until accessed in the <code>VWCollectionGen</code> generator. The argument passed is the
+source document</p>
+
+<p><em>after_auto_create_model</em></p>
+
+<p>Executes after the a source document result is converted to a model instance. Does not occur until the model 
+instance is accessed in the generator. Due to the way the generator works the instance passed to the callback
+is empty, while the argument is the newly created instance to manipulate.</p>
+
+<p><strong>Creating New Events</strong></p>
+
+<p>You can register your own events and fire them yourself.</p>
+
+<p>::</p>
+
+<pre><code># register an event when your generic document is something specific
+def is_pdf(inst, argument=None, **kwargs):
+    # do something
+    return argument
+
+Document.register_callback( 'on_edit', is_pdf )
+
+# then somewhere in your code (maybe an edit function?)
+document_instance.execute_callbacks('on_edit')
+</code></pre>
+
+<hr>
+
+<h2>
+<a id="author" class="anchor" href="#author" aria-hidden="true"><span class="octicon octicon-link"></span></a>AUTHOR</h2>
+
+<p>Chris Brown, Drew Goin and Boyd Hitt </p>
+
+<hr>
+
+<h2>
+<a id="copyright" class="anchor" href="#copyright" aria-hidden="true"><span class="octicon octicon-link"></span></a>COPYRIGHT</h2>
+
+<p>Copyright (c) 2015 Constituent Voice LLC</p>
+      </section>
+    </div>
+
+    <!-- FOOTER  -->
+    <div id="footer_wrap" class="outer">
+      <footer class="inner">
+        <p class="copyright">Velociwrapper maintained by <a href="https://github.com/constituentvoice">constituentvoice</a></p>
+        <p>Published with <a href="https://pages.github.com">GitHub Pages</a></p>
+      </footer>
+    </div>
+
+    
+
+  </body>
+</html>
