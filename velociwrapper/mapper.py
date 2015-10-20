@@ -152,10 +152,10 @@ class Mapper(object):
 		helpers.reindex(self._es, index, newindex, **kwargs)
 
 		if remap_alias or alias_name:
-			if alias_exists and alias != alias_name:
-				self._esc.delete_alias(alias)
+			if alias_exists:
+				self._esc.delete_alias(name=alias, index=index)
 
-			self._esc.put_alias(name=alias,index=newindex)
+			self._esc.put_alias(name=alias, index=newindex)
 
 
 	def get_subclasses(self,cls,subs):
