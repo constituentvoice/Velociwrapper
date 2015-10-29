@@ -377,6 +377,10 @@ your new data. It is recommended to let Velociwrapper handle ID creation unless 
 
 <p><strong>Model API</strong></p>
 
+<p><strong>collection</strong> <em>()</em></p>
+
+<p>Returns a <code>VWCollection</code> for this model. If a custom subclass has been defined it will be returned. Otherwise a new collection will be created.</p>
+
 <p><strong>commit</strong> <em>()</em></p>
 
 <p>Commits the model to Elasticsearch. New models will be created as new documents. Existing models will be updated.</p>
