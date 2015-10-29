@@ -425,3 +425,17 @@ class VWBase(VWCallback):
     def more_like_this(self,**kwargs):
         c = VWCollection(base_obj=self.__class__)
         return c.get_like_this(self.id).all(**kwargs)
+
+    def collection(self):
+        """
+        Returns an instantiated VWCollection class that has the model provided in base_obj.
+        @param base_obj: class
+        @return: VWCollection
+        """
+        vwcollections = VWCollection.__subclasses__()
+        for vwcollection in vwcollections:
+            if vwcollection.__model__ is self.__class__:
+                return vwcollection()
+
+        return VWCollection(base_obj=self.__class__
+
