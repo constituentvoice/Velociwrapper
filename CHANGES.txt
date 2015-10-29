@@ -200,4 +200,6 @@
     - Better PEP-8 complience (not 100% complete yet)
     - added VWBase.collection() which returns a defined collection
       for a model or a new base collection if one isn't defined.
+    - fixed VWBase.more_like_this() not working (collection.py has been merged
+      with base.py
     - other minor fixes

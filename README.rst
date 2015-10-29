@@ -322,6 +322,10 @@ your new data. It is recommended to let Velociwrapper handle ID creation unless 
 
 **Model API**
 
+**collection** *()*
+
+Returns a ``VWCollection`` for this model. If a custom subclass has been defined it will be returned. Otherwise a new collection will be created.
+
 **commit** *()*
 
 Commits the model to Elasticsearch. New models will be created as new documents. Existing models will be updated.
@@ -542,7 +546,6 @@ Keyword arguments:
 
 - ``bulk_chunk_size`` *int*: override default chunk size for this collection
 - ``results_per_page`` *int*
-
 
 **__len__** *()*
 
