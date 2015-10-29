@@ -32,8 +32,7 @@ class VWCollection(VWCallback):
             try:
                 self.base_obj = self.__class__.__model__
             except AttributeError:
-                raise AttributeError('Base object must contain a model or pass
-                    base_obj')
+                raise AttributeError('Base object must contain a model or pass base_obj')
 
         self._es = Elasticsearch(config.dsn)
         self._esc = client.IndicesClient(self._es)

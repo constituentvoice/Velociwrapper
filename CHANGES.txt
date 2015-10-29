@@ -196,3 +196,8 @@
 2.0.6
     - first public release
     - fixed version numbers
+2.0.7
+    - Better PEP-8 complience (not 100% complete yet)
+    - added VWBase.collection() which returns a defined collection
+      for a model or a new base collection if one isn't defined.
+    - other minor fixes
