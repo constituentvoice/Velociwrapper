@@ -203,3 +203,6 @@
     - fixed VWBase.more_like_this() not working (collection.py has been merged
       with base.py
     - other minor fixes
+
+2.0.8
+    - fixed filter_by() using terms:{} on an analyzed field when passed a list
