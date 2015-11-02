@@ -508,9 +508,15 @@ class VWCollection(VWCallback):
                     q_type = 'query'
 
                 if isinstance(v, list):
-                    # lists are treat as like "OR" (using terms())
-                    self._querybody.chain( qdsl.terms(k,v),condition=condition,
-                        type=q_type)
+                    # lists are treat as like "OR" (using terms() on not_analyzed, bool/matched on analyzed)
+                    if analyzed:
+                        match_queries = []
+                        for item in v:
+                            match_queries.append( qdsl.match(k,item) )
+                        self._querybody.chain( qdsl.bool(qdsl.should(match_queries)), condition=condition,type=q_type )
+                    else:
+                        self._querybody.chain( qdsl.terms(k,v),condition=condition,
+                            type=q_type)
                 else:
                     #search_value = unicode(v)
                     if analyzed:
