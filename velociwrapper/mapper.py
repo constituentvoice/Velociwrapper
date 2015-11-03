@@ -7,6 +7,9 @@ from .base import VWBase
 import json
 import inspect
 
+class MapperError(Exception):
+    pass
+
 # tools for creating or reindexing elasticsearch mapping
 class Mapper(object):
     def __init__(self):
@@ -137,7 +140,14 @@ class Mapper(object):
             index = self.get_index_for_alias(idx)
             alias_exists = True
 
+
         if alias_name:
+            if self._esc.exists_alias(alias_name):
+                if remap_alias:
+                    alias_exists = True
+                else:
+                    raise MapperError('%s already exists as an alias. If you wish to delete the old alias pass remap_alias=True' % alias_name)
+
             alias = alias_name
 
         # does the new index exist?
@@ -151,7 +161,7 @@ class Mapper(object):
         # map our documents
         helpers.reindex(self._es, index, newindex, **kwargs)
 
-        if remap_alias or alias_name:
+        if alias and (remap_alias or alias_name):
             if alias_exists:
                 self._esc.delete_alias(name=alias, index=index)
 
