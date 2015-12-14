@@ -748,9 +748,9 @@ class VWCollection(VWCallback):
         return self
 
     def delete(self, **kwargs):
-        params = self._create_search_params()
-        params.update(kwargs)
-        self._es.delete_by_query(**params)
+		deletes = self.all( size=self.count(),_srource_include=['id'] ).results()['hits']['hits']
+		ids = [d['_source'].get('id') for d in deletes]
+		return self.delete_in(ids)
 
     def delete_in(self, ids):
         if not isinstance(ids, list):
