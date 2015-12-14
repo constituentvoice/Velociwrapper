@@ -8,6 +8,7 @@ Installation
 ------------
 
 ::
+
     pip install Velociwrapper
 
 Or download manually and run setup.py 
