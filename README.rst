@@ -605,6 +605,15 @@ first to last. ``desc`` sorts the field last to first. ``asc`` is the default.
 
 ----
 
+Additional Methods for ``VWCollectionGen``
+------------------------------------------
+
+``VWCollectionGen`` is returned by calls from ``VWCollection.all()`` and ``VWCollection.get_in()``. 
+
+**results** *(self)*
+
+Returns the underlying ElasticSearch results. Useful for getting meta information
+
 Query Bodies with ``querybuilder.QueryBody`` 
 --------------------------------------------
 

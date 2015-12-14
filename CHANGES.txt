@@ -218,3 +218,4 @@
 	  ElasticSearch where delete_by_query() has been removed. 
 	- Fix for some parse errors in the README.rst file
 	- clarified use of `collection()` in the documentation
+	- Added documentation for VWCollection.results
