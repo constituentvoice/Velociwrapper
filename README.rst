@@ -17,6 +17,7 @@ Getting Started
 ---------------
 
 ::
+
     # configuration
     import velociwrapper
     velociwrapper.config.dsn = ["localhost"]
@@ -268,6 +269,7 @@ but if it is not present then the value of ``velociwrapper.config.default_index`
 Example:
 
 ::
+
     class User(VWBase):
         __index__ = 'user_index'
         __type__ = 'user'
@@ -281,6 +283,7 @@ Example:
 Or without using ESTypes:
 
 ::
+
     class User(VWBase):
         __index__ = 'user_index'
         __type__ = 'user'
@@ -296,6 +299,7 @@ and can create the mappings for you, if you haven't specified them yourself.
 Once models are created they must be committed to save into the Elasticsearch cluster
 
 ::
+
     u = User(
         username='jsmith', 
         password=crypt_method('password123'), 
@@ -309,6 +313,7 @@ Once models are created they must be committed to save into the Elasticsearch cl
 The call to ``commit()`` generates an id for the document. If you want to explicitly set the id first, you can set the id attribute:
 
 ::
+
     u = User( ... )
     u.id = 'my-unique-id'
     u.commit()
@@ -355,6 +360,7 @@ Collections are used to search and return collections of models. Searches can be
 Example:
     
 ::
+
     # all users named john
     users = Users().filter_by(name='John').all()
 
@@ -367,6 +373,7 @@ Example:
 By default chained criteria are joined with "AND" ("must" in most cases internally). But can be controlled:
 
 ::
+
     # users who live in texas or are named john:
     users = Users().filter_by(name='John', state='TX', condition='or').all()
 
@@ -381,6 +388,7 @@ convienent because it allows collections and models to be defined in separate fi
 When creating a subclass for a collection, specify the model using the ``__model__`` property.
 
 ::
+
     class Users(VWCollection):
         __model__ = User
 
@@ -401,6 +409,7 @@ is no preceeding condition, the condition is set to and/must by default.
 Examples:
 
 ::
+
     # get users in named John or Stacy  
     users = Users().filter_by(name='John').filter_by(name='Stacy', condition='or').all()
 
@@ -465,6 +474,7 @@ Delete the records specified by the search query.
 Delete the records specified by a list of ids. Equivalent to:
 
 ::
+
     Users().filter_by(ids=list_of_ids).delete()
 
 **exact** *(field=str, value=mixed)*
@@ -519,13 +529,14 @@ Returns the single record specified by ``id`` or ``None`` if it does not exist.
 Returns a list of records specified by the list of ids or an empty list if no ids exist. Note this method cannot be sorted. If sorting is needed it is better to call
 
 ::
+
     filter_by(ids=list).sort(...).all()
 
 **get_like_this** *(id)*
 
 Returns records like the document specified by id or an empty list if none exists. Note this method cannot be sorted.
 
-**__init__** *([items=list],[\*\*kwargs])*
+**\_\_init\_\_** *([items=list],[\*\*kwargs])*
 
 Create a collection. If ``items`` are specified they are stored internally to ``commit()`` in bulk. Stored items must be models (subclassing ``VWBase``) or ``dict``.
 
@@ -534,7 +545,7 @@ Keyword arguments:
 - ``bulk_chunk_size`` *int*: override default chunk size for this collection
 - ``results_per_page`` *int*
 
-**__len__** *()*
+**\_\_len\_\_** *()*
 
 Same as ``count()``. Allows for the entire collection to be passed to ``len()``
 
@@ -679,6 +690,7 @@ are Elasticsearch options for ``bool`` such as ``minimum_should_match``
 Example:
 
 ::
+
     from velociwrapper.qdsl import bool, must, must_not, match
     mybool = bool(
         must( match('foo','some value') ), 
@@ -697,6 +709,7 @@ is set then the params are treated as a field name and passed to ``term``.
 Example:
 
 ::
+
     must( match('foo', 'some value' ) )
     # returns { "must": { "match": { "foo": {"query": "some value" } } } }
 
@@ -834,6 +847,7 @@ Mapper
 Use the mapper by importing it:
 
 ::
+
     from velociwrapper.mapper import Mapper
 
 The Mapper class has utilities for managing the Elasticsearch index.
@@ -885,6 +899,7 @@ from one method is passed to the next as the argument.
 Example:
 
 ::
+
     from your_models import Document
     
     # check a user for entry in another database
@@ -983,6 +998,7 @@ is empty, while the argument is the newly created instance to manipulate.
 You can register your own events and fire them yourself.
 
 ::
+
     # register an event when your generic document is something specific
     def is_pdf(inst, argument=None, **kwargs):
         # do something
