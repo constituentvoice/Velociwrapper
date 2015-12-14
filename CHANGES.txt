@@ -201,7 +201,7 @@
     - added VWBase.collection() which returns a defined collection
       for a model or a new base collection if one isn't defined.
     - fixed VWBase.more_like_this() not working (collection.py has been merged
-      with base.py
+      with base.py)
     - other minor fixes
 
 2.0.8
@@ -212,3 +212,9 @@
       was specified.
     - mapper now raises MapperError if an alias_name is specified on reindex
       but the alias already exists and remap_alias is False/None
+
+2.0.10
+	- Changed VWCollection().delete() to work in more recent versions of
+	  ElasticSearch where delete_by_query() has been removed. 
+	- Fix for some parse errors in the README.rst file
+	- clarified use of `collection()` in the documentation
