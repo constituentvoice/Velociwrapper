@@ -239,7 +239,7 @@ class ESType(type):
             for k in dir(self):
                 if k in valid:
                     v = getattr(self,k)
-
+                    
                     keyname = k
                     if k[ len(k) - 1 ] == "_":
                         if k in ['meta_','value_','boost_']:
@@ -255,6 +255,13 @@ class ESType(type):
                             v = 'not_analyzed'
 
                     if v != None:
+                        if isinstance(v,dict):
+                            for k,vsub in v.iteritems():
+                                try:
+                                    v = vsub.prop_dict()
+                                except AttributeError:
+
+
                         prop_dict[keyname] = v
 
             return prop_dict
@@ -294,7 +301,7 @@ class ESType(type):
             if obj.__name__ in cls.__es_properties__:
                 valid.extend( list( cls.__es_properties__.get(obj.__name__) ) )
         valid.extend( list( cls.__es_properties__.get('Any') ) )
-
+        
         for k,v in kwargs.iteritems():
             if k in valid:
                 es_kwargs[k] = v

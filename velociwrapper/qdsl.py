@@ -443,3 +443,10 @@ def script(script, **kwargs ):
 def type_(_type):
     return {"type": { "value": _type } }
 
+def highlight(fields={}, **kwargs):
+    hl = {"fields": fields}
+
+    for k,v in kwargs.iteritems():
+        hl[k] = v
+
+    return {"highlight": hl}
