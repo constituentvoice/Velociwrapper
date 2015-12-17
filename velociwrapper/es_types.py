@@ -128,6 +128,33 @@ def is_analyzed(value):
     return analyzed
 
 class ESType(type):
+    @classmethod
+    def build_map(cls,d):
+            
+        if isinstance(d, list):
+            out_list = []
+            for i in d:
+                out_list.append( cls.build_map(i) )
+            return out_list
+
+        elif isinstance(d,dict):
+            output = {}
+
+            for k, v in d.iteritems():
+                if isinstance(v, dict):
+                    output[k] = cls.build_map(v)
+                else:
+                    try:
+                        if v.__metaclass__ == ESType:
+                            output[k] = v.prop_dict()
+                        else:
+                            output[k] = v
+                    except:
+                        output[k] = v
+            return output
+            
+        return {} # I *think* we should never end up here
+
     def __new__(cls,clsname,bases,dct):
         # default accepted properties on various classes
         # the values are set by ES and are only here for completeness
@@ -224,7 +251,7 @@ class ESType(type):
                 continue
 
             dct['__es_properties__']['Array'].update(v)
-
+        
         def get_prop_dict(self):
             es_type = self.__class__.__name__.lower()
             prop_dict = { "type": es_type }
@@ -255,12 +282,8 @@ class ESType(type):
                             v = 'not_analyzed'
 
                     if v != None:
-                        if isinstance(v,dict):
-                            for k,vsub in v.iteritems():
-                                try:
-                                    v = vsub.prop_dict()
-                                except AttributeError:
-
+                        if isinstance(v,dict) or isinstance(v,list):
+                            v = self.__class__.build_map(v)
 
                         prop_dict[keyname] = v
 
