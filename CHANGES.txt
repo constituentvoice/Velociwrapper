@@ -216,6 +216,9 @@
 2.0.10
 	- Changed VWCollection().delete() to work in more recent versions of
 	  ElasticSearch where delete_by_query() has been removed. 
+	- Changed ESType.prop_dict() to support nested ESTypes (prop_dict() is
+	  called again to create a complete mapping (works great for using the
+	  `fields` keyword which allows for multifield functionality
 	- Fix for some parse errors in the README.rst file
 	- clarified use of `collection()` in the documentation
 	- Added documentation for VWCollection.results
