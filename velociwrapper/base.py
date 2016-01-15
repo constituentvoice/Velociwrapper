@@ -527,7 +527,13 @@ class VWCollection(VWCallback):
         return self
 
     def multi_match(self, fields, query, **kwargs):
-        self._querybody.chain(qdsl.multi_match(query, fields), condition=kwargs.get('condition', None), type='query')
+        condition = kwargs.get('condition', None)
+        try:
+            del kwargs['condition']
+        except KeyError:
+            pass
+
+        self._querybody.chain(qdsl.multi_match(query, fields,**kwargs), condition=condition, type='query')
         return self
 
     def exact(self, field, value,**kwargs):
