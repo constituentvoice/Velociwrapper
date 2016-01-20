@@ -96,8 +96,7 @@ class VWBase(VWCallback):
         self._watch = True
 
         # connect using defaults or override with kwargs
-		connection_args = kwargs.get('connect_args',{})
-        self._es = Elasticsearch( config.dsn,**connection_args )
+        self._es = Elasticsearch( config.dsn,config.connection_params )
         self._deleted = False
 
         if '__index__' not in dir(self):
@@ -148,7 +147,7 @@ class VWBase(VWCallback):
             setattr(self,k,v)
 
         # recreate the _es connection (doesn't reset for some reason)
-        self._es = Elasticsearch(config.dsn)
+        self._es = Elasticsearch(config.dsn,config.connection_params)
 
         self._pickling = False
 
@@ -458,7 +457,7 @@ class VWCollection(VWCallback):
             except AttributeError:
                 raise AttributeError('Base object must contain a model or pass base_obj')
 
-        self._es = Elasticsearch(config.dsn)
+        self._es = Elasticsearch(config.dsn,config.connection_params)
         self._esc = client.IndicesClient(self._es)
 
         if '__index__' in dir(self.base_obj):
