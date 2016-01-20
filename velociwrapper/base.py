@@ -96,7 +96,8 @@ class VWBase(VWCallback):
         self._watch = True
 
         # connect using defaults or override with kwargs
-        self._es = Elasticsearch( config.dsn )
+		connection_args = kwargs.get('connect_args',{})
+        self._es = Elasticsearch( config.dsn,**connection_args )
         self._deleted = False
 
         if '__index__' not in dir(self):
