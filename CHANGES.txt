@@ -227,8 +227,12 @@
     - Fixed a typo in collection.delete()
 
 2.0.12
-	- Updated multi_match() to accept additional arguments for ES
-	- Removed an unused connection that was created in the config.py
-	- Ensure that the config option "connection_params" is actually passed to
-	  connections (it wasn't always used previously)
-	- Fixed a bug that prevented "not" condition working in filter_by()
+    - Updated multi_match() to accept additional arguments for ES
+    - Removed an unused connection that was created in the config.py
+    - Ensure that the config option "connection_params" is actually passed to
+      connections (it wasn't always used previously)
+    - Fixed a bug that prevented "not" condition working in filter_by()
+
+2.0.13
+    - Fixed bug that prevented "not" working in filters
+    - Fixed a typo that crashed filters with not
