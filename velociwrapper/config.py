@@ -84,8 +84,3 @@ if os.environ.get('VW_RESULTS_PER_PAGE'):
     except ValueError:
         logger.warning('Invalid value for VW_RESULTS_PER_PAGE. ' +
             'Expected integer. Using default.')
-
-# Connect to elastic search
-# You can override this to create your own connection (though not from the
-# environment)
-es = Elasticsearch( dsn, **connection_params )

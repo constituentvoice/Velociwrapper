@@ -1,12 +1,3 @@
-from elasticsearch import Elasticsearch, NotFoundError,helpers
-from datetime import date,datetime
-from dateutil import parser
-from uuid import uuid4
-import json
-import copy
-import logging
-from .config import es,default_index,bulk_chunk_size,logger
-
 class relationship(object):
     def __init__(self,ref_model,**kwargs):
         self.ref_model_str = ref_model

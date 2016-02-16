@@ -12,8 +12,8 @@ class MapperError(Exception):
 
 # tools for creating or reindexing elasticsearch mapping
 class Mapper(object):
-    def __init__(self):
-        self._es = Elasticsearch(config.dsn)
+    def __init__(self,connect_args={}):
+        self._es = Elasticsearch(config.dsn,**config.connection_params)
         self._esc = client.IndicesClient(self._es)
 
     # Retrieves the mapping as defined by the server
