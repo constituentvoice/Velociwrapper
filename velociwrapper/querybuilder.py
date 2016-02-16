@@ -160,6 +160,8 @@ class QueryBody(object):
                     f_type = t
                     if len(_filter[t]) == 1:
                         _filter[t] = _filter[t][0] # if only one remove the list
+                        if t == "must_not":
+                            filter_needs_bool = True # still need if "must_not"
                     elif t in ['must','should','must_not']:
                         filter_needs_bool = True
                 else:
@@ -186,7 +188,7 @@ class QueryBody(object):
                 pass
 
         if f_type_count > 1:
-            if not self.explicit:
+            if not self._explicit:
                 filter_needs_bool = True
             filter_is_multi_condition = True
 
