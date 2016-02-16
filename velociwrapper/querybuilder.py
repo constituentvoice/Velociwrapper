@@ -116,7 +116,6 @@ class QueryBody(object):
 
             if _condition not in self._query:
                 self._query[_condition] = []
-
             self._query[_condition].append( newpart )
 
         return self
@@ -173,8 +172,12 @@ class QueryBody(object):
                     is_query = True
                     q_type_count += 1
                     q_type = t
-                    if len(_query[t]) ==  1:
+                    if len(_query[t]) == 1:
                         _query[t] = _query[t][0] # if only one remove the list
+                        
+                        # if this is "must_not" we still need to declare bool
+                        if t == 'must_not':
+                            query_needs_bool = True
                     else:
                         query_needs_bool = True
                 else:
@@ -192,6 +195,7 @@ class QueryBody(object):
             query_needs_bool = True
 
         _output_query = {}
+        
         if is_query:
             if query_needs_bool:
                 _output_query = { 'bool': _query }
