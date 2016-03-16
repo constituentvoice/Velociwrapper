@@ -491,10 +491,14 @@ class VWCollection(VWCallback):
         condition = self._translate_bool_condition(condition)
 
         for k,v in kwargs.iteritems():
+            id_filter = []
             if k == 'id' or k == 'ids':
                 id_filter = v
                 if not isinstance(id_filter, list):
                     id_filter = [id_filter]
+                    id_filter = [_id for _id in id_filter if _id != None]
+
+            if len(id_filter) > 0:
 
                 self._querybody.chain(qdsl.ids(id_filter), condition=condition)
             else:
@@ -584,6 +588,11 @@ class VWCollection(VWCallback):
 
     def get_in(self, ids,**kwargs):
         if len(ids) > 0: # check for ids. empty list returns an empty list (instead of exception)
+            # filter any Nones in the list as they crash the client
+            ids = [_id for _id in ids if _id != None]
+            if len(ids) < 1:
+                return []
+
             params = {'index':self.idx, 'doc_type':self.type, 'body':{'ids':ids}}
             params.update(kwargs);
             res = self._es.mget(**params)
