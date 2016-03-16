@@ -26,7 +26,7 @@
         - setting of a model on a relationship attribute does not yet work
 
 0.2.1
-    - reverted _create_search_params() change. Search paramters stay. Broke
+    - reverted _create_search_params() change. Search parameters stay. Broke
       too much stuff.
     - added clear_previous_search() to clear the search and reuse the
       collection
@@ -104,7 +104,7 @@
         - can be combined with other queries using filter_by (but not ids)
         - will warn if the search is a string but the field is analyzed
         - can accept a list
-    - range() now works with other searchs
+    - range() now works with other searches
     - search() may not always work with other searches due to nature of
       QueryDSL
     - wrote some documentation in the README.rst
@@ -217,8 +217,8 @@
     - Changed VWCollection().delete() to work in more recent versions of
       ElasticSearch where delete_by_query() has been removed. 
     - Changed ESType.prop_dict() to support nested ESTypes (prop_dict() is
-      called again to create a complete mapping (works great for using the
-      `fields` keyword which allows for multifield functionality
+      called again to create a complete mapping. This works great for using the
+      `fields` keyword which allows for multifield functionality)
     - Fix for some parse errors in the README.rst file
     - clarified use of `collection()` in the documentation
     - Added documentation for VWCollection.results
@@ -236,3 +236,7 @@
 2.0.13
     - Fixed bug that prevented "not" working in filters
     - Fixed a typo that crashed filters with not
+
+2.0.14
+	- Fixed crash when calling get_in() or filter_by(ids=list) when the list
+	  contained `None` values

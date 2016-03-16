@@ -496,7 +496,8 @@ class VWCollection(VWCallback):
                 id_filter = v
                 if not isinstance(id_filter, list):
                     id_filter = [id_filter]
-                    id_filter = [_id for _id in id_filter if _id != None]
+                
+                id_filter = [_id for _id in id_filter if _id != None]
 
             if len(id_filter) > 0:
 
