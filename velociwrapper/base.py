@@ -499,6 +499,9 @@ class VWCollection(VWCallback):
                 
                 id_filter = [_id for _id in id_filter if _id != None]
 
+                if len(id_filter) < 1:
+                    raise ValueError('%s keyword must not be empty' % k)
+
             if len(id_filter) > 0:
 
                 self._querybody.chain(qdsl.ids(id_filter), condition=condition)
