@@ -240,3 +240,6 @@
 2.0.14
 	- Fixed crash when calling get_in() or filter_by(ids=list) when the list
 	  contained `None` values
+
+2.0.15
+	- filter_by(ids=list) now raises a ValueError if the list of ids is empty
