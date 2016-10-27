@@ -737,6 +737,15 @@ class VWCollection(VWCallback):
                 search_options[opt] = kwargs.get(opt)
                 del kwargs[opt]
 
+
+        # convert dates
+        for cond in ['gte','gt','lte','lt']:
+            if isinstance(kwargs.get(cond),datetime):
+                kwargs[cond] = kwargs[cond].strftime('%Y-%m-%dT%H:%M:%S')
+
+            elif isinstance(kwargs.get(cond), date):
+                kwargs[cond] = kwargs[cond].strftime('%Y-%m-%d')
+
         q = qdsl.range(field, **kwargs)
         if self._querybody.is_filtered():
             d = {'filter': q}

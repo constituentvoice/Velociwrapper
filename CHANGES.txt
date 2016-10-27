@@ -243,3 +243,7 @@
 
 2.0.15
 	- filter_by(ids=list) now raises a ValueError if the list of ids is empty
+
+2.0.16
+	- range() conditions (gte, gt, lte, lt) will now convert date and datetime objects
+	  to the appropriate string
