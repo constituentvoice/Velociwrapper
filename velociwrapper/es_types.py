@@ -14,7 +14,7 @@ def create_es_type(value):
     except:
         pass
 
-    if type(value) == str or type(value) == unicode:
+    if isinstance(value,basestring):
         # strings could be a lot of things
         # try to see if it might be a date
 
