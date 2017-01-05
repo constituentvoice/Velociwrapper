@@ -58,7 +58,7 @@ def create_es_type(value):
         except:
             pass
 
-        if type(value) == unicode:
+        if isinstance(value, unicode):
             if value.isnumeric():
                 return Number(value)
             else:
@@ -66,16 +66,16 @@ def create_es_type(value):
 
         return String(value)
 
-    if type(value) == int:
+    if isinstance(value, int):
         return Integer(value)
 
-    if type(value) == bool:
+    if isinstance(value, bool):
         return Boolean(value)
 
-    if type(value) == long:
+    if isinstance(value, long):
         return Long(value)
 
-    if type(value) == float:
+    if isinstance(value,float):
         return Float(value)
 
     if isinstance(value,datetime):

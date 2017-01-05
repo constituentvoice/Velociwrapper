@@ -815,7 +815,7 @@ class VWCollection(VWCallback):
         else:
             items = self._items
 
-        for i in self._items:
+        for i in items:
             if callback:
                 i = callback(i)
 
