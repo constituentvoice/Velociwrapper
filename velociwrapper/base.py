@@ -161,14 +161,19 @@ class VWBase(VWCallback):
 
         v = None
         doc = None
+        skip_none_value = False
         try:
             doc = super(VWBase,self).__getattribute__('_document')
             if name in doc:
                 v = doc.get(name)
+                if v is None:
+                    skip_none_value = True
         except AttributeError:
             pass
 
-        if not v:
+        if skip_none_value or v:
+            pass
+        else:
             v = super(VWBase,self).__getattribute__(name)
 
             # instance attribute was becoming a reference to the class
@@ -228,7 +233,7 @@ class VWBase(VWCallback):
                             raise TypeError('Update to %s must be a list of \
                                 objects that extend VWBase' % name)
 
-            elif isinstance(value,VWBase) or value == None:
+            elif isinstance(value,VWBase) or value is None:
                 pass
             else:
                 raise TypeError('Update to %s must extend VWBase or be None'
@@ -286,12 +291,12 @@ class VWBase(VWCallback):
                 try:
                     if value.__metaclass__ == ESType:
                         set_value_cls = False
-                    elif isinstance(value, None):
+                    elif value is None:
                         set_value_cls = False
                     else:
                         set_value_cls = True
                 except AttributeError:
-                    if isinstance(value,None):
+                    if value is None:
                         set_value_cls = False
                     else:
                         set_value_cls = True
