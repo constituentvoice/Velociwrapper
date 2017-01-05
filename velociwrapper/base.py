@@ -188,7 +188,7 @@ class VWBase(VWCallback):
         if isinstance(v,relationship) and not no_ex:
             return v.execute(self)
 
-        elif isinstance(v,str) or isinstance(v,unicode):
+        elif isinstance(v,basestring):
             try:
                 dt_value = datetime.strptime(v,'%Y-%m-%dT%H:%M:%S')
                 return dt_value
@@ -286,10 +286,15 @@ class VWBase(VWCallback):
                 try:
                     if value.__metaclass__ == ESType:
                         set_value_cls = False
+                    elif isinstance(value, None):
+                        set_value_cls = False
                     else:
                         set_value_cls = True
                 except AttributeError:
-                    set_value_cls = True
+                    if isinstance(value,None):
+                        set_value_cls = False
+                    else:
+                        set_value_cls = True
 
                 if set_value_cls:
                     type_enforcement = False
