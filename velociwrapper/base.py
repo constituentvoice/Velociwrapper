@@ -171,10 +171,12 @@ class VWBase(VWCallback):
         except AttributeError:
             pass
 
-        if skip_none_value or v:
-            pass
-        else:
-            v = super(VWBase,self).__getattribute__(name)
+        if not v:
+            default_v = super(VWBase,self).__getattribute__(name)
+
+            # list and dict objects attributes cannot be set to None. Others can
+            if not skip_none_value or isinstance(default_v,list) or isinstance(default_v, dict):
+                v = default_v
 
             # instance attribute was becoming a reference to the class
             # attribute. Not what we wanted, make a copy
@@ -183,8 +185,6 @@ class VWBase(VWCallback):
                     v = copy.deepcopy(v)
                     self._document[name] = v
                     return self._document[name]
-
-
 
         # we want to keep the relationships if set_by_query in the collection
         # so we only execute with direct access
