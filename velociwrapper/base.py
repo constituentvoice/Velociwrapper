@@ -493,6 +493,20 @@ class VWCollection(VWCallback):
         self._raw = raw_request
         return self
 
+    def _check_datetime(self,value):
+        if isinstance(value,date):
+            return value.strftime('%Y-%m-%d')
+        elif isinstance(value,datetime):
+            return value.isoformat()
+        else:
+            return value
+
+    def _check_datetime_dict(self,kwargs_dict):
+        for k,v in kwargs_dict.iteritems():
+            kwargs[k] = self._check_datetime(v)
+
+        return kwargs
+            
     def filter_by(self, condition = 'and',**kwargs):
         if kwargs.get('condition'):
             condition=kwargs.get('condition')
@@ -501,7 +515,13 @@ class VWCollection(VWCallback):
         condition = self._translate_bool_condition(condition)
 
         for k,v in kwargs.iteritems():
+            if isinstance(v, list):
+                v = [self.check_datetime(vi) for vi in v]
+            else:
+                v = self._check_datetime(v)
+
             id_filter = []
+
             if k == 'id' or k == 'ids':
                 id_filter = v
                 if not isinstance(id_filter, list):
@@ -546,15 +566,19 @@ class VWCollection(VWCallback):
 
     def multi_match(self, fields, query, **kwargs):
         condition = kwargs.get('condition', None)
+
         try:
             del kwargs['condition']
         except KeyError:
             pass
 
+        kwargs = self._check_datetime_dict(kwargs)
+
         self._querybody.chain(qdsl.multi_match(query, fields,**kwargs), condition=condition, type='query')
         return self
 
     def exact(self, field, value,**kwargs):
+        kwargs = self._check_datetime_dict(kwargs)
         try:
             field_template = getattr( self.base_obj, field)
 
@@ -747,14 +771,8 @@ class VWCollection(VWCallback):
                 search_options[opt] = kwargs.get(opt)
                 del kwargs[opt]
 
-
-        # convert dates
-        for cond in ['gte','gt','lte','lt']:
-            if isinstance(kwargs.get(cond),datetime):
-                kwargs[cond] = kwargs[cond].strftime('%Y-%m-%dT%H:%M:%S')
-
-            elif isinstance(kwargs.get(cond), date):
-                kwargs[cond] = kwargs[cond].strftime('%Y-%m-%d')
+        
+        kwargs = self._check_datetime_dict(kwargs)
 
         q = qdsl.range(field, **kwargs)
         if self._querybody.is_filtered():
