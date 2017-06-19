@@ -247,3 +247,10 @@
 2.0.16
 	- range() conditions (gte, gt, lte, lt) will now convert date and datetime objects
 	  to the appropriate string
+
+2.0.17
+	- Support for date and datetime objects in filter contexts
+	- Prevent attributes that default to list or dict from being set to None
+	- Attributes explicitly set to None will save and return as None
+	- Fixed bulk commit from search (failing due to a bad comparison)
+	- Fixed is_attribute() always returning False on es_types.Array

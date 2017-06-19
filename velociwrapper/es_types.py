@@ -96,11 +96,10 @@ def is_analyzed(value):
     check_defaults = False
     try:
         if value.__metaclass__ == ESType:
-            if isinstance(value, String):
+            if isinstance(value, String) or isinstance(value, Array):
                 analyzed = value.es_args().get('analyzed')
                 if analyzed == None:
                     analyzed = True
-
             else:
                 analyzed = False
         else:
@@ -121,7 +120,7 @@ def is_analyzed(value):
                 checklist = [value]
 
             for item in checklist:
-                if isinstance(value, str) or isinstance(value,unicode):
+                if isinstance(value, basestring):
                     analyzed = True
                     break
 
