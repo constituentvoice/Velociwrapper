@@ -522,7 +522,7 @@ class VWCollection(VWCallback):
 
         for k,v in kwargs.iteritems():
             if isinstance(v, list):
-                v = [self.check_datetime(vi) for vi in v]
+                v = [self._check_datetime(vi) for vi in v]
             else:
                 v = self._check_datetime(v)
 
