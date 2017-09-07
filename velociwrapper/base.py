@@ -10,6 +10,7 @@ from elasticsearch import Elasticsearch, NotFoundError,helpers,client
 
 from . import config, querybuilder, qdsl
 from .config import logger
+from .util import unset
 from .relationship import relationship
 from .es_types import * # implements elastic search types
 
@@ -159,15 +160,12 @@ class VWBase(VWCallback):
         except AttributeError:
             pass
 
-        v = None
+        v = unset
         doc = None
-        skip_none_value = False
         try:
             doc = super(VWBase,self).__getattribute__('_document')
             if name in doc:
-                v = doc.get(name)
-                if v is None:
-                    skip_none_value = True
+                v = doc.get(name, unset)
         except AttributeError:
             pass
 
@@ -175,7 +173,7 @@ class VWBase(VWCallback):
             default_v = super(VWBase,self).__getattribute__(name)
 
             # list and dict objects attributes cannot be set to None. Others can
-            if not skip_none_value or isinstance(default_v,list) or isinstance(default_v, dict):
+            if v is unset or isinstance(default_v,list) or isinstance(default_v, dict):
                 v = default_v
 
             # instance attribute was becoming a reference to the class
@@ -208,6 +206,159 @@ class VWBase(VWCallback):
         else:
             return v
 
+    # EXPERIMENTAL
+    def __set_relationship_value(self,name,value):
+
+        # TODO ... this stuff is probably going to have to be rethought
+        currparams = currvalue.get_relational_params(self)
+        newparams = currvalue.get_reverse_params(self,value)
+
+        if isinstance(value,list) and currvalue.reltype == 'many':
+            if len(value) > 0:
+                for v in value:
+                    if not isinstance(v,VWBase):
+                        raise TypeError('Update to %s must be a list of \
+                            objects that extend VWBase' % name)
+
+        elif isinstance(value,VWBase) or value is None:
+            pass
+        else:
+            raise TypeError('Update to %s must extend VWBase or be None'
+                % name)
+
+        for k,v in currparams.iteritems():
+            # if left hand value is a list
+            if isinstance(v, list):
+                newlist = []
+                # if our new value is a list we should overwrite
+                if isinstance(value, list):
+                    newlist = map(lambda item: getattr(item, k), value)
+
+                # otherwise append
+                else:
+                    # had to reset the list because I can't directly
+                    # append
+                    newlist = super(VWBase, self).__getattribute__(k)
+
+                object.__setattr__(self, k, newlist)
+            # if left hand value is something else
+            else:
+                # if we're setting a list then check that the relationship
+                # type is "many"
+                if isinstance(value, list) and currvalue.reltype == 'many':
+                    # if the length of the list is 0 we will null the value
+                    if len(value) < 1:
+                        relation_value = ''
+                    else:
+                        # the related column on all items would have
+                        # to be the same (and really there should only
+                        # be one but we're going to ignore that for now)
+                        relation_value = getattr(value[0],k)
+
+                    object.__setattr__(self, k, relation_value)
+                else:
+                    # set the related key to the related key value (v)
+                    if value:
+                        object.__setattr__(self, k, v)
+
+    def __set_document_value(self,name,value):
+
+        if name[0] == '_':
+            # special rules for names with underscores.
+            # seting the _ values will not trigger an update.
+            if (name not in dir(self) or name in ['_set_by_query',
+                '_deleted','_watch','_new','_no_ex','_pickling',
+                '_document','_callbacks']
+                or self._pickling):
+                object.__setattr__(self,name,value) # not copied
+
+        else:
+            currvalue = create_es_type(currvalue) # create as an es_type
+
+            try:
+                if value.__metaclass__ == ESType:
+                    set_value_cls = False
+                elif value is None:
+                    set_value_cls = False
+                else:
+                    set_value_cls = True
+            except AttributeError:
+                if value is None:
+                    set_value_cls = False
+                else:
+                    set_value_cls = True
+
+            if set_value_cls:
+                type_enforcement = False
+                try:
+                    type_enforcement = self.__strict_types__
+                except AttributeError:
+                    try:
+                        type_enforcement = config.strict_types
+                    except AttributeError:
+                        type_enforcement = False
+
+                try:
+                    if currvalue.__metaclass__ == ESType:
+                        cls = currvalue.__class__
+                        params = currvalue.es_args()
+
+                        # try to set the value as the same class.
+                        try:
+                            value = cls(value, **params)
+                        except:
+                            # value didn't set. Try set as es_type
+                            test_value = create_es_type(value)
+
+                            # dates and times are special
+                            if isinstance(test_value,DateTime):
+                                if isinstance(currvalue, DateTime):
+                                    value = DateTime(test_value.year,
+                                        test_value.month, test_value.day,
+                                        test_value.hour, test_value.minute,
+                                        test_value.second,
+                                        test_value.microsecond,
+                                        test_value.tzinfo, **params)
+                                elif isinstance(currvalue, Date):
+                                    value = Date(test_value.year,
+                                        test_value.month, test_value.day,
+                                        **params)
+                                else:
+                                    value = test_value
+                            else:
+                                value = test_value
+
+                        if type_enforcement:
+                            try:
+                                if value.__class__ != currvalue.__class__:
+                                    raise TypeError('strict type enforcement is enabled. %s must be set with %s' % (name, currvalue.__class__.__name__))
+                            except:
+                                # errors where value isn't even a class
+                                # will raise their own exception.
+                                # Catch here to avoid attribute errors
+                                # from this block being passed along below
+                                raise
+
+                except AttributeError:
+                    # currvalue couldn't be converted to an ESType
+                    # we just fall back to regular types.
+                    # if ES has an issue it will throw its own exception.
+                    pass
+
+            # just set the field on the document
+            if isinstance(value,DateTime) or isinstance(value,datetime):
+                self._document[name] = value.strftime('%Y-%m-%dT%H:%M:%S')
+            elif isinstance(value,Date) or isinstance(value,date):
+                self._document[name] = value.strftime('%Y-%m-%d')
+            elif isinstance(value,Boolean):
+                self._document[name] = bool(value)
+            else:
+                self._document[name] = value
+
+            if self._watch:
+                object.__setattr__(self,'_needs_update',True)
+                object.__setattr__(self,'_watch',False)
+
     def __setattr__(self,name,value):
         if '_deleted' in dir(self) and self._deleted:
             raise ObjectDeletedError
@@ -215,162 +366,16 @@ class VWBase(VWCallback):
         # we need to do some magic if the current value is a relationship
         try:
             currvalue = super(VWBase,self).__getattribute__(name)
-
         except AttributeError:
             currvalue = None
 
         if (isinstance(currvalue,relationship)
             and not isinstance(value, relationship)):
-
-            # TODO ... this stuff is probably going to have to be rethought
-            currparams = currvalue.get_relational_params(self)
-            newparams = currvalue.get_reverse_params(self,value)
-
-            if isinstance(value,list) and currvalue.reltype == 'many':
-                if len(value) > 0:
-                    for v in value:
-                        if not isinstance(v,VWBase):
-                            raise TypeError('Update to %s must be a list of \
-                                objects that extend VWBase' % name)
-
-            elif isinstance(value,VWBase) or value is None:
-                pass
-            else:
-                raise TypeError('Update to %s must extend VWBase or be None'
-                    % name)
-
-            for k,v in currparams.iteritems():
-                # if left hand value is a list
-                if isinstance(v, list):
-                    newlist = []
-                    # if our new value is a list we should overwrite
-                    if isinstance(value, list):
-                        newlist = map(lambda item: getattr(item, k), value)
-
-                    # otherwise append
-                    else:
-                        # had to reset the list because I can't directly
-                        # append
-                        newlist = super(VWBase, self).__getattribute__(k)
-
-                    object.__setattr__(self, k, newlist)
-                # if left hand value is something else
-                else:
-                    # if we're setting a list then check that the relationship
-                    # type is "many"
-                    if isinstance(value, list) and currvalue.reltype == 'many':
-                        # if the length of the list is 0 we will null the value
-                        if len(value) < 1:
-                            relation_value = ''
-                        else:
-                            # the related column on all items would have
-                            # to be the same (and really there should only
-                            # be one but we're going to ignore that for now)
-                            relation_value = getattr(value[0],k)
-
-                        object.__setattr__(self, k, relation_value)
-                    else:
-                        # set the related key to the related key value (v)
-                        if value:
-                            object.__setattr__(self, k, v)
+            self.__set_relationship_value(name,value)
 
         # attribute is NOT a relationship
         else:
-            if name[0] == '_':
-                # special rules for names with underscores.
-                # seting the _ values will not trigger an update.
-                if (name not in dir(self) or name in ['_set_by_query',
-                    '_deleted','_watch','_new','_no_ex','_pickling',
-                    '_document','_callbacks']
-                    or self._pickling):
-                    object.__setattr__(self,name,value) # not copied
-
-            else:
-                currvalue = create_es_type(currvalue) # create as an es_type
-
-                try:
-                    if value.__metaclass__ == ESType:
-                        set_value_cls = False
-                    elif value is None:
-                        set_value_cls = False
-                    else:
-                        set_value_cls = True
-                except AttributeError:
-                    if value is None:
-                        set_value_cls = False
-                    else:
-                        set_value_cls = True
-
-                if set_value_cls:
-                    type_enforcement = False
-                    try:
-                        type_enforcement = self.__strict_types__
-                    except AttributeError:
-                        try:
-                            type_enforcement = config.strict_types
-                        except AttributeError:
-                            type_enforcement = False
-
-                    try:
-                        if currvalue.__metaclass__ == ESType:
-                            cls = currvalue.__class__
-                            params = currvalue.es_args()
-
-                            # try to set the value as the same class.
-                            try:
-                                value = cls(value, **params)
-                            except:
-                                # value didn't set. Try set as es_type
-                                test_value = create_es_type(value)
-
-                                # dates and times are special
-                                if isinstance(test_value,DateTime):
-                                    if isinstance(currvalue, DateTime):
-                                        value = DateTime(test_value.year,
-                                            test_value.month, test_value.day,
-                                            test_value.hour, test_value.minute,
-                                            test_value.second,
-                                            test_value.microsecond,
-                                            test_value.tzinfo, **params)
-                                    elif isinstance(currvalue, Date):
-                                        value = Date(test_value.year,
-                                            test_value.month, test_value.day,
-                                            **params)
-                                    else:
-                                        value = test_value
-                                else:
-                                    value = test_value
-
-                            if type_enforcement:
-                                try:
-                                    if value.__class__ != currvalue.__class__:
-                                        raise TypeError('strict type enforcement is enabled. %s must be set with %s' % (name, currvalue.__class__.__name__))
-                                except:
-                                    # errors where value isn't even a class
-                                    # will raise their own exception.
-                                    # Catch here to avoid attribute errors
-                                    # from this block being passed along below
-                                    raise
-
-                    except AttributeError:
-                        # currvalue couldn't be converted to an ESType
-                        # we just fall back to regular types.
-                        # if ES has an issue it will throw its own exception.
-                        pass
-
-                # just set the field on the document
-                if isinstance(value,DateTime) or isinstance(value,datetime):
-                    self._document[name] = value.strftime('%Y-%m-%dT%H:%M:%S')
-                elif isinstance(value,Date) or isinstance(value,date):
-                    self._document[name] = value.strftime('%Y-%m-%d')
-                elif isinstance(value,Boolean):
-                    self._document[name] = bool(value)
-                else:
-                    self._document[name] = value
-
-                if self._watch:
-                    object.__setattr__(self,'_needs_update',True)
-                    object.__setattr__(self,'_watch',False)
+            self.__set_document_value(name,value)
 
     def commit(self, **kwargs):
         # save in the db

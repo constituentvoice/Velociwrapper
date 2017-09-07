@@ -251,6 +251,6 @@
 2.0.17
 	- Support for date and datetime objects in filter contexts
 	- Prevent attributes that default to list or dict from being set to None
-	- Attributes explicitly set to None will save and return as None
+	- Attributes explicitly set to None or False will now work! 
 	- Fixed bulk commit from search (failing due to a bad comparison)
 	- Fixed is_attribute() always returning False on es_types.Array
