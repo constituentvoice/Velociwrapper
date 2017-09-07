@@ -208,12 +208,13 @@ class VWBase(VWCallback):
 
     # EXPERIMENTAL
     def __set_relationship_value(self,name,value):
+        curr_value = self.__get_current_value(name)
 
         # TODO ... this stuff is probably going to have to be rethought
-        currparams = currvalue.get_relational_params(self)
-        newparams = currvalue.get_reverse_params(self,value)
+        currparams = curr_value.get_relational_params(self)
+        newparams = curr_value.get_reverse_params(self,value)
 
-        if isinstance(value,list) and currvalue.reltype == 'many':
+        if isinstance(value,list) and curr_value.reltype == 'many':
             if len(value) > 0:
                 for v in value:
                     if not isinstance(v,VWBase):
@@ -245,7 +246,7 @@ class VWBase(VWCallback):
             else:
                 # if we're setting a list then check that the relationship
                 # type is "many"
-                if isinstance(value, list) and currvalue.reltype == 'many':
+                if isinstance(value, list) and curr_value.reltype == 'many':
                     # if the length of the list is 0 we will null the value
                     if len(value) < 1:
                         relation_value = ''
@@ -261,19 +262,22 @@ class VWBase(VWCallback):
                     if value:
                         object.__setattr__(self, k, v)
 
+    def __get_current_value(self, name):
+        try:
+            return super(VWBase, self).__getattribute__(name)
+        except AttributeError:
+            return None
+
     def __set_document_value(self,name,value):
 
         if name[0] == '_':
             # special rules for names with underscores.
-            # seting the _ values will not trigger an update.
-            if (name not in dir(self) or name in ['_set_by_query',
-                '_deleted','_watch','_new','_no_ex','_pickling',
-                '_document','_callbacks']
-                or self._pickling):
-                object.__setattr__(self,name,value) # not copied
-
+            # setting the _ values will not trigger an update.
+            if (name not in dir(self) or name in ['_set_by_query', '_deleted', '_watch', '_new', '_no_ex', '_pickling',
+                                                  '_document', '_callbacks'] or self._pickling):
+                object.__setattr__(self, name, value)  # not copied
         else:
-            currvalue = create_es_type(currvalue) # create as an es_type
+            curr_value = create_es_type(self.__get_current_value(name))  # create as an es_type
 
             try:
                 if value.__metaclass__ == ESType:
@@ -299,9 +303,9 @@ class VWBase(VWCallback):
                         type_enforcement = False
 
                 try:
-                    if currvalue.__metaclass__ == ESType:
-                        cls = currvalue.__class__
-                        params = currvalue.es_args()
+                    if curr_value.__metaclass__ == ESType:
+                        cls = curr_value.__class__
+                        params = curr_value.es_args()
 
                         # try to set the value as the same class.
                         try:
@@ -312,14 +316,14 @@ class VWBase(VWCallback):
 
                             # dates and times are special
                             if isinstance(test_value,DateTime):
-                                if isinstance(currvalue, DateTime):
+                                if isinstance(curr_value, DateTime):
                                     value = DateTime(test_value.year,
                                         test_value.month, test_value.day,
                                         test_value.hour, test_value.minute,
                                         test_value.second,
                                         test_value.microsecond,
                                         test_value.tzinfo, **params)
-                                elif isinstance(currvalue, Date):
+                                elif isinstance(curr_value, Date):
                                     value = Date(test_value.year,
                                         test_value.month, test_value.day,
                                         **params)
@@ -330,8 +334,8 @@ class VWBase(VWCallback):
 
                         if type_enforcement:
                             try:
-                                if value.__class__ != currvalue.__class__:
-                                    raise TypeError('strict type enforcement is enabled. %s must be set with %s' % (name, currvalue.__class__.__name__))
+                                if value.__class__ != curr_value.__class__:
+                                    raise TypeError('strict type enforcement is enabled. %s must be set with %s' % (name, curr_value.__class__.__name__))
                             except:
                                 # errors where value isn't even a class
                                 # will raise their own exception.
@@ -340,7 +344,7 @@ class VWBase(VWCallback):
                                 raise
 
                 except AttributeError:
-                    # currvalue couldn't be converted to an ESType
+                    # curr_value couldn't be converted to an ESType
                     # we just fall back to regular types.
                     # if ES has an issue it will throw its own exception.
                     pass
@@ -364,12 +368,9 @@ class VWBase(VWCallback):
             raise ObjectDeletedError
 
         # we need to do some magic if the current value is a relationship
-        try:
-            currvalue = super(VWBase,self).__getattribute__(name)
-        except AttributeError:
-            currvalue = None
+        curr_value = self.__get_current_value(name)
 
-        if (isinstance(currvalue,relationship)
+        if (isinstance(curr_value,relationship)
             and not isinstance(value, relationship)):
             self.__set_relationship_value(name,value)
 
@@ -508,9 +509,9 @@ class VWCollection(VWCallback):
 
     def _check_datetime_dict(self,kwargs_dict):
         for k,v in kwargs_dict.iteritems():
-            kwargs[k] = self._check_datetime(v)
+            kwargs_dict[k] = self._check_datetime(v)
 
-        return kwargs
+        return kwargs_dict
             
     def filter_by(self, condition = 'and',**kwargs):
         if kwargs.get('condition'):
@@ -872,7 +873,7 @@ class VWCollection(VWCallback):
                 this_id = i.get('id')
 
             else:
-                raise TypeError('Elments passed to the collection must be type of "dict" or "VWBase"')
+                raise TypeError('Elements passed to the collection must be type of "dict" or "VWBase"')
 
             if not this_id:
                 this_id = str(uuid4())
