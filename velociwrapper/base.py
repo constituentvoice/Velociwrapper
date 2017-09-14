@@ -454,16 +454,15 @@ class VWBase(VWCallback):
 
         return VWCollection(base_obj=self.__class__)
 
+
 # setup the collections
 class VWCollection(VWCallback):
     
-    def __init__(self,items=[],**kwargs):
-        self.bulk_chunk_size = kwargs.get('bulk_chunk_size',
-            config.bulk_chunk_size)
+    def __init__(self, items=None, **kwargs):
+        self.bulk_chunk_size = kwargs.get('bulk_chunk_size', config.bulk_chunk_size)
         self._sort = []
-        self.results_per_page = kwargs.get('results_per_page',
-            config.results_per_page)
-        self._querybody = querybuilder.QueryBody() # sets up the new query bodies
+        self.results_per_page = kwargs.get('results_per_page', config.results_per_page)
+        self._querybody = querybuilder.QueryBody()  # sets up the new query bodies
 
         if kwargs.get('base_obj'):
             self.base_obj = kwargs.get('base_obj')
@@ -481,17 +480,16 @@ class VWCollection(VWCallback):
         else:
             idx = config.default_index
 
-        self._search_params = []
         self._raw = {}
         self.idx = idx
         self.type = self.base_obj.__type__
         self._special_body = {}
         
         # special list of items that can be committed in bulk
-        self._items = items 
+        self._items = items or []
 
-    def search(self,q):
-        self._search_params.append(q)
+    def search(self, query, **kwargs):
+        self._querybody.chain(qdsl.query_string(query, **kwargs), type='query')
         return self
 
     # setup a raw request
@@ -638,7 +636,7 @@ class VWCollection(VWCallback):
                 return []
 
             params = {'index':self.idx, 'doc_type':self.type, 'body':{'ids':ids}}
-            params.update(kwargs);
+            params.update(kwargs)
             res = self._es.mget(**params)
             if res and res.get('docs'):
                 return VWCollectionGen(self.base_obj, res)
@@ -666,33 +664,25 @@ class VWCollection(VWCallback):
 
     def clear_previous_search(self):
         self._raw = {}
-        self._search_params = []
         self._special_body = {}
         self._querybody = querybuilder.QueryBody()
 
-    def _create_search_params( self, **kwargs ):
+    def _create_search_params(self, **kwargs):
         # before_query_build() is allowed to manipulate the object's internal state before we do stuff
-        self._querybody = self.execute_callbacks('before_query_build', self._querybody )
+        self._querybody = self.execute_callbacks('before_query_build', self._querybody)
 
-        q = {
-            'index': self.idx,
-            'doc_type': self.type
-        }
+        q = {'index': self.idx, 'doc_type': self.type}
 
         if self._raw:
             q['body'] = self._raw
-        elif len(self._search_params) > 0:
-            kwargs['type'] = 'query'
-            self._querybody.chain(qdsl.query_string(self.and_(*self._search_params)), **kwargs)
+        elif self._querybody:
+            q['body'] = self._querybody.build()
         else:
             q['body'] = qdsl.query(qdsl.match_all())
 
-        if self._querybody.is_filtered() or self._querybody.is_query():
-            q['body'] = self._querybody.build()
-
         # after_query_build() can manipulate the final query before being sent to ES
         # this is generally considered a bad idea but might be useful for logging
-        q = self.execute_callbacks( 'after_query_build', q )
+        q = self.execute_callbacks('after_query_build', q)
 
         logger.debug(json.dumps(q))
         return q

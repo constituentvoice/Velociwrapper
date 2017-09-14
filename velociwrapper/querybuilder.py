@@ -1,6 +1,7 @@
 import copy
 from . import qdsl
 
+
 class QueryBody(object):
     def __init__(self):
         self._filter = { 'must':[], 'should':[], 'must_not':[], 'and':[], 'not':[], 'or':[] }
@@ -8,6 +9,14 @@ class QueryBody(object):
         self._bool = 'must'
         self._last_part = '_query'
         self._explicit = None
+
+    def __bool__(self):
+        # Python 3.x version of __nonzero__
+        return bool(self.is_filtered() or self.is_query())
+
+    def __nonzero__(self):
+        # Python 2.x version of __bool__
+        return self.__bool__()
 
     def chain( self, newpart, **kwargs ):
 
