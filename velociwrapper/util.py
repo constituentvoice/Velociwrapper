@@ -17,5 +17,5 @@ class VWUnset(object):
     def __nonzero__(self):
         return False
 
-unset = VWUnset()
 
+unset = VWUnset()

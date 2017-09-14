@@ -1,4 +1,3 @@
-#from .collection import VWCollection,NoResultsFound
-from .base import VWBase,ObjectDeletedError,NoResultsFound,VWCollection
+from .base import VWBase, ObjectDeletedError, NoResultsFound, VWCollection
 from .relationship import relationship
 from .version import __version__
