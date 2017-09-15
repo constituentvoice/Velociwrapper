@@ -4,6 +4,7 @@ from .config import logger
 from .relationship import relationship
 from .es_types import *
 from .base import VWBase
+from .util import all_subclasses
 import json
 import inspect
 
@@ -168,12 +169,7 @@ class Mapper(object):
             self._esc.put_alias(name=alias, index=newindex)
 
     def get_subclasses(self, cls, subs):
-        this_subs = cls.__subclasses__()
-        if len(this_subs) == 0:
-            subs.append(cls)
-        else:
-            for sc in this_subs:
-                self.get_subclasses(sc, subs)
+        subs.extend(all_subclasses(cls))
 
     def describe(self, cls):
         body = {}

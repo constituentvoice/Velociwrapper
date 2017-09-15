@@ -8,7 +8,7 @@ from elasticsearch import Elasticsearch, NotFoundError, helpers, client
 
 from . import config, querybuilder, qdsl
 from .config import logger
-from .util import unset
+from .util import unset, all_subclasses
 from .relationship import relationship
 from .es_types import *  # implements elastic search types
 
@@ -442,10 +442,12 @@ class VWBase(VWCallback):
         @param base_obj: class
         @return: VWCollection
         """
-        vwcollections = VWCollection.__subclasses__()
-        for vwcollection in vwcollections:
-            if vwcollection.__model__ is self.__class__:
-                return vwcollection()
+        for vwcollection in all_subclasses(VWCollection):
+            try:
+                if vwcollection.__model__ is self.__class__:
+                    return vwcollection()
+            except AttributeError:
+                pass
 
         return VWCollection(base_obj=self.__class__)
 
