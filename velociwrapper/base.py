@@ -196,7 +196,7 @@ class VWBase(VWCallback):
         elif isinstance(v, basestring):
             try:
                 try:
-                    return datetime.strptime(v, '%Y-%m-%dT%H:%M:%S').date()
+                    return datetime.strptime(v, '%Y-%m-%dT%H:%M:%S')
                 except ValueError:
                     return datetime.strptime(v, '%Y-%m-%d').date()
             except (ValueError, AttributeError, TypeError):
@@ -483,10 +483,10 @@ class VWCollection(VWCallback):
         return self
 
     def _check_datetime(self, value):
-        if isinstance(value, date):
-            return value.strftime('%Y-%m-%d')
-        elif isinstance(value, datetime):
+        if isinstance(value, datetime):
             return value.isoformat()
+        elif isinstance(value, date):
+            return value.strftime('%Y-%m-%d')
         else:
             return value
 
