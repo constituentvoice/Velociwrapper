@@ -496,14 +496,16 @@ class VWCollection(VWCallback):
 
         return kwargs_dict
 
-    def filter_by(self, condition='and', **kwargs):
-        if kwargs.get('condition'):
-            condition = kwargs.get('condition')
-            del kwargs['condition']
+    def filter_by(self, parameters=None, condition='and', **kwargs):
 
         condition = self._translate_bool_condition(condition)
 
-        for k, v in kwargs.iteritems():
+        if not isinstance(parameters, dict):
+            parameters = {}
+
+        parameters.update(kwargs)
+
+        for k, v in parameters.iteritems():
             if isinstance(v, list):
                 v = [self._check_datetime(vi) for vi in v]
             else:
@@ -516,7 +518,7 @@ class VWCollection(VWCallback):
                 if not isinstance(id_filter, list):
                     id_filter = [id_filter]
 
-                id_filter = [_id for _id in id_filter if _id != None]
+                id_filter = [_id for _id in id_filter if _id is not None]
 
                 if len(id_filter) < 1:
                     raise ValueError('%s keyword must not be empty' % k)

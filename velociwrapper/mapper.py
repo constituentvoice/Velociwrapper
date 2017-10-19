@@ -1,11 +1,10 @@
 from . import config
 from elasticsearch import Elasticsearch, client, helpers
 from .config import logger
-from .relationship import relationship
 from .es_types import *
 from .base import VWBase
 from .util import all_subclasses
-import json
+from .connection import VWConnection
 import inspect
 
 
@@ -15,12 +14,15 @@ class MapperError(Exception):
 
 # tools for creating or reindexing elasticsearch mapping
 class Mapper(object):
-    def __init__(self, connect_args={}):
-        self._es = Elasticsearch(config.dsn, **config.connection_params)
-        self._esc = client.IndicesClient(self._es)
+    def get_es_client(self, connection=None):
+        if not connection:
+            connection = VWConnection.get_connection()
+
+        return client.IndicesClient(connection)
 
     # Retrieves the mapping as defined by the server
-    def get_server_mapping(self, **kwargs):
+    def get_server_mapping(self, connection=None, **kwargs):
+        es_client = self.get_es_client(connection)
         indexes = []
         if isinstance(kwargs.get('index'), list):
             indexes = kwargs.get('index')
@@ -37,7 +39,7 @@ class Mapper(object):
         if not indexes:
             indexes.append(config.default_index)
 
-        return self._esc.get_mapping(index=indexes)
+        return es_client.get_mapping(index=indexes)
 
     # Retrieves what the map should be according to the defined models
     def get_index_map(self, **kwargs):
@@ -100,7 +102,8 @@ class Mapper(object):
 
         return indexes
 
-    def create_indices(self, **kwargs):
+    def create_indices(self, connection=None, **kwargs):
+        es_client = self.get_es_client(connection)
 
         suffix = kwargs.get('suffix')
         indexes = self.get_index_map(**kwargs)
@@ -111,13 +114,15 @@ class Mapper(object):
             else:
                 idx = k
 
-            self._esc.create(index=idx, body=v)
+            es_client.create(index=idx, body=v)
 
             if suffix:
-                self._esc.put_alias(index=idx, name=k)
+                es_client.put_alias(index=idx, name=k)
 
-    def get_index_for_alias(self, alias):
-        aliasd = self._esc.get_aliases(index=alias)
+    def get_index_for_alias(self, alias, connection=None):
+        es_client = self.get_es_client(connection)
+
+        aliasd = es_client.get_aliases(index=alias)
         index = ''
         for k, v in aliasd.iteritems():
             index = k
@@ -128,19 +133,21 @@ class Mapper(object):
 
         return index
 
-    def reindex(self, idx, newindex, alias_name=None, remap_alias=None, **kwargs):
+    def reindex(self, idx, newindex, alias_name=None, remap_alias=None, connection=None, **kwargs):
+        es_client = self.get_es_client(connection)
+
         # are we an alias or an actual index?
         index = idx;
         alias = None
         alias_exists = False
 
-        if self._esc.exists_alias(idx):
+        if es_client.exists_alias(idx):
             alias = idx
             index = self.get_index_for_alias(idx)
             alias_exists = True
 
         if alias_name:
-            if self._esc.exists_alias(alias_name):
+            if es_client.exists_alias(alias_name):
                 if remap_alias:
                     alias_exists = True
                 else:
@@ -150,23 +157,25 @@ class Mapper(object):
             alias = alias_name
 
         # does the new index exist?
-        if not self._esc.exists(newindex):
+        if not es_client.exists(newindex):
             # if new doesn't exist then create the mapping
             # as a copy of the old one. The idea being that the mapping
             # was changed
             index_mapping = self.get_index_map(
                 index=idx)  # using "idx" intentionally because models will be defined as alias
-            self._esc.create(index=newindex, body=index_mapping.get(
-                idx))  # have to use the index name as the key to the dict even though only one is returned.  .create() only takes the mapping
+
+            # have to use the index name as the key to the dict even though only one is returned.
+            # .create() only takes the mapping
+            es_client.create(index=newindex, body=index_mapping.get(idx))
 
         # map our documents
-        helpers.reindex(self._es, index, newindex, **kwargs)
+        helpers.reindex(es_client, index, newindex, **kwargs)
 
         if alias and (remap_alias or alias_name):
             if alias_exists:
-                self._esc.delete_alias(name=alias, index=index)
+                es_client.delete_alias(name=alias, index=index)
 
-            self._esc.put_alias(name=alias, index=newindex)
+            es_client.put_alias(name=alias, index=newindex)
 
     def get_subclasses(self, cls, subs):
         subs.extend(all_subclasses(cls))
