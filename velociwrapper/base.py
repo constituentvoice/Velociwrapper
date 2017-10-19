@@ -4,9 +4,10 @@ from datetime import date, datetime
 from uuid import uuid4
 import json
 
-from elasticsearch import Elasticsearch, NotFoundError, helpers, client
+from elasticsearch import NotFoundError, helpers, client
 
 from . import config, querybuilder, qdsl
+from .connection import VWConnection
 from .config import logger
 from .util import unset, all_subclasses
 from .relationship import relationship
@@ -77,7 +78,7 @@ class VWBase(VWCallback):
     id = ''
     __index__ = None
 
-    def __init__(self, **kwargs):
+    def __init__(self, dsn=None, connection=None, _set_by_query=False, **kwargs):
         # the internal document
         self._document = {}
 
@@ -88,7 +89,7 @@ class VWBase(VWCallback):
         # relationships should not be executed when called from init (EVAR)
         self._no_ex = True
 
-        if kwargs.get('_set_by_query'):
+        if _set_by_query:
             self._new = False
             self._set_by_query = True
         else:
@@ -98,8 +99,6 @@ class VWBase(VWCallback):
         self._needs_update = False
         self._watch = True
 
-        # connect using defaults or override with kwargs
-        self._es = Elasticsearch(config.dsn, **config.connection_params)
         self._deleted = False
 
         if self.__index__ is None:
@@ -148,9 +147,6 @@ class VWBase(VWCallback):
 
         for k, v in state.iteritems():
             setattr(self, k, v)
-
-        # recreate the _es connection (doesn't reset for some reason)
-        self._es = Elasticsearch(config.dsn, **config.connection_params)
 
         self._pickling = False
 
@@ -369,20 +365,22 @@ class VWBase(VWCallback):
         # we need to do some magic if the current value is a relationship
         curr_value = self.__get_current_value(name)
 
-        if (isinstance(curr_value, relationship)
-            and not isinstance(value, relationship)):
+        if (isinstance(curr_value, relationship) and not isinstance(value, relationship)):
             self.__set_relationship_value(name, value)
 
         # attribute is NOT a relationship
         else:
             self.__set_document_value(name, value)
 
-    def commit(self, **kwargs):
+    def commit(self, connection=None, **kwargs):
         # save in the db
+        if not connection:
+            connection = VWConnection.get_connection()
 
         if self._deleted and hasattr(self, 'id') and self.id:
             self.execute_callbacks('on_delete')
-            self._es.delete(id=self.id, index=self.__index__, doc_type=self.__type__)
+
+            connection.delete(id=self.id, index=self.__index__, doc_type=self.__type__)
         else:
             self.execute_callbacks('before_commit')
             idx = self.__index__
@@ -398,15 +396,18 @@ class VWBase(VWCallback):
             if hasattr(self, 'id') and self.id:
                 kwargs['id'] = self.id
 
-            res = self._es.index(**kwargs)
+            connection.index(**kwargs)
             self._watch = True
             self.execute_callbacks('after_commit')
 
-    def sync(self):
+    def sync(self, connection=None):
+        if not connection:
+            connection = VWConnection.get_connection()
+
         if self.id:
             try:
                 self.execute_callbacks('before_sync')
-                res = self._es.get(id=self.id, index=self.__index__)
+                res = connection.get(id=self.id, index=self.__index__)
                 self._document = res.get('_source')
 
                 self._new = False
@@ -466,8 +467,7 @@ class VWCollection(VWCallback):
 
         self.type = self.base_obj.__type__
         self.idx = getattr(self.base_obj, '__index__', config.default_index)
-        self._es = Elasticsearch(config.dsn, **config.connection_params)
-        self._esc = client.IndicesClient(self._es)
+
         self._sort = []
         self._raw = {}
         self._special_body = {}
@@ -596,24 +596,33 @@ class VWCollection(VWCallback):
     def and_(self, *args):
         return ' AND '.join(args)
 
-    def get(self, id, **kwargs):
+    def get(self, id, connection=None, **kwargs):
+        if not connection:
+            connection = VWConnection.get_connection()
+
         try:
             params = {'index': self.idx, 'doc_type': self.type, 'id': id}
             params.update(kwargs)
-            doc = self._es.get(**params)
+            doc = connection.get(**params)
             if doc:
                 return VWCollectionGen(self.base_obj, {'docs': [doc]})[0]
 
             return None
 
-        except:
-            # TODO. Discuss this. Should get() return None even on exceptions?
+        except NotFoundError:
             return None
 
-    def refresh(self, **kwargs):
-        self._esc.refresh(index=self.idx, **kwargs)
+    def refresh(self, connection=None, **kwargs):
+        if not connection:
+            connection = VWConnection.get_connection()
 
-    def get_in(self, ids, **kwargs):
+        es_client = client.IndicesClient(connection)
+        es_client.refresh(index=self.idx, **kwargs)
+
+    def get_in(self, ids, connection=None, **kwargs):
+        if not connection:
+            connection = VWConnection.get_connection()
+
         if len(ids) > 0:  # check for ids. empty list returns an empty list (instead of exception)
             # filter any Nones in the list as they crash the client
             ids = [_id for _id in ids if _id != None]
@@ -622,16 +631,20 @@ class VWCollection(VWCallback):
 
             params = {'index': self.idx, 'doc_type': self.type, 'body': {'ids': ids}}
             params.update(kwargs)
-            res = self._es.mget(**params)
+
+            res = connection.mget(**params)
             if res and res.get('docs'):
                 return VWCollectionGen(self.base_obj, res)
 
         return []
 
-    def get_like_this(self, doc_id, **kwargs):
+    def get_like_this(self, doc_id, connection=None, **kwargs):
+        if not connection:
+            connection = VWConnection.get_connection()
+
         params = {'index': self.idx, 'doc_type': self.type, 'id': doc_id}
         params.update(kwargs)
-        res = self._es.mlt(**params)
+        res = connection.mlt(**params)
 
         if res and res.get('docs'):
             return VWCollectionGen(self.base_obj, res)
@@ -673,9 +686,12 @@ class VWCollection(VWCallback):
         logger.debug(json.dumps(q))
         return q
 
-    def count(self):
+    def count(self, connection=None):
+        if not connection:
+            connection = VWConnection.get_connection()
+
         params = self._create_search_params()
-        resp = self._es.count(**params)
+        resp = connection.count(**params)
         return resp.get('count')
 
     def __len__(self):
@@ -685,7 +701,11 @@ class VWCollection(VWCallback):
         self.results_per_page = count
         return self
 
-    def all(self, **kwargs):
+    def all(self, connection=None, **kwargs):
+        if not connection:
+            connection = VWConnection.get_connection()
+
+        logger.info(connection)
 
         params = self._create_search_params()
         if not params.get('size'):
@@ -715,7 +735,7 @@ class VWCollection(VWCallback):
                 raise TypeError('"sort" argument must be a list')
 
         logger.debug(json.dumps(params))
-        results = self._es.search(**params)
+        results = connection.search(**params)
 
         return VWCollectionGen(self.base_obj, results)
 
@@ -785,12 +805,15 @@ class VWCollection(VWCallback):
         self._querybody.chain(qdsl.filter_(qdsl.exists(field, **kwargs)))
         return self
 
-    def delete(self, **kwargs):
+    def delete(self, connection=None):
         deletes = self.all(size=self.count(), _source_include=['id']).results()['hits']['hits']
         ids = [d['_source'].get('id') for d in deletes]
-        return self.delete_in(ids)
+        return self.delete_in(ids, connection)
 
-    def delete_in(self, ids):
+    def delete_in(self, ids, connection=None):
+        if not connection:
+            connection = VWConnection.get_connection()
+
         if not isinstance(ids, list):
             raise TypeError('argument to delete in must be a list.')
 
@@ -809,10 +832,13 @@ class VWCollection(VWCallback):
 
             bulk_docs.append({'_op_type': 'delete', '_type': this_type, '_index': this_idx, '_id': this_id})
 
-        return helpers.bulk(self._es, bulk_docs, chunk_size=self.bulk_chunk_size)
+        return helpers.bulk(connection, bulk_docs, chunk_size=self.bulk_chunk_size)
 
     # commits items in bulk
-    def commit(self, callback=None):
+    def commit(self, callback=None, connection=None):
+        if not connection:
+            connection = VWConnection.get_connection()
+
         bulk_docs = []
 
         if callback:
@@ -853,7 +879,7 @@ class VWCollection(VWCallback):
             bulk_docs.append(
                 {'_op_type': 'index', '_type': this_type, '_index': this_idx, '_id': this_id, '_source': this_dict})
 
-        return helpers.bulk(self._es, bulk_docs, chunk_size=self.bulk_chunk_size)
+        return helpers.bulk(connection, bulk_docs, chunk_size=self.bulk_chunk_size)
 
 
 class VWCollectionGen(VWCallback):
