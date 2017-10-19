@@ -1,6 +1,5 @@
 from . import config
 from elasticsearch import Elasticsearch, client, helpers
-from .config import logger
 from .es_types import *
 from .base import VWBase
 from .util import all_subclasses
