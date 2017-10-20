@@ -271,4 +271,4 @@
     - filter_by() now accepts a dict of parameters rather than just keyword arguments. keyword arguments for field
       names are now deprecated and will be removed in a future version. As of ES 2.0, nested field names have to be
       explicitly specified but couldn't be as a keyword argument
-    -
+    - Updated methods in mapper to use VWConnection and

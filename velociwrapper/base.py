@@ -758,14 +758,6 @@ class VWCollection(VWCallback):
         elif _bool_condition == 'not':
             _bool_condition = 'must_not'
 
-        # this is for things like geo_distance where we explicitly want the true and/or/not
-        elif _bool_condition == 'explicit_and':
-            _bool_condition = 'and'
-        elif _bool_condition == 'explicit_or':
-            _bool_condition = 'or'
-        elif _bool_condition == 'explicit_not':
-            _bool_condition = 'not'
-
         return _bool_condition
 
     def range(self, field, **kwargs):

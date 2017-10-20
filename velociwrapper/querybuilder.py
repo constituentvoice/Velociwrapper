@@ -4,11 +4,10 @@ from . import qdsl
 
 class QueryBody(object):
     def __init__(self):
-        self._filter = {'must': [], 'should': [], 'must_not': [], 'and': [], 'not': [], 'or': []}
+        self._filter = {'must': [], 'should': [], 'must_not': []}
         self._query = {'must': [], 'should': [], 'must_not': []}
         self._bool = 'must'
         self._last_part = '_query'
-        self._explicit = None
 
     def __bool__(self):
         # Python 3.x version of __nonzero__
@@ -19,9 +18,6 @@ class QueryBody(object):
         return self.__bool__()
 
     def chain(self, newpart, **kwargs):
-
-        condition_map = {'must': 'and', 'should': 'or', 'must_not': 'not'}
-        condition_rev_map = {'and': 'must', 'or': 'should', 'not': 'must_not'}
         # figure out if we're a filter or a query being chained
 
         # explicitly stated
@@ -45,92 +41,37 @@ class QueryBody(object):
                 return self
         # else uses _last_par and assumes query if not specified
 
-        # Explicit conditions only apply to filters
+        # existing conditions in the dictionary will just get parsed recursively
+        _condition = 'must'
+        if kwargs.get('condition') in ['must', 'should', 'must_not']:
+            _condition = kwargs.get('condition')
+        elif isinstance(newpart, dict):
+            _chained = False
+            for lt in ['must', 'should', 'must_not']:
+                if lt in newpart:
+                    kwargs['condition'] = lt
+                    self.chain(newpart[lt], **kwargs)
+                    _chained = True
+            if _chained:
+                return self
+        # else treat the condition as 'must'
+
+        # chain the newpart to the toplevel bool
         if self._last_part == '_filter':
-            # figure out if we have a top level condition (and, or, not)
-            # check if its explicitly stated
-            if kwargs.get('with_explicit'):
-                self._explicit = kwargs.get('with_explicit')
-            # Check if the condition parameter is really a top level
-            elif kwargs.get('condition') in ['and', 'or', 'not']:
-                self._explicit = kwargs.get('condition')
+            if _condition not in self._filter:
+                self._filter[_condition] = []
 
-                # reverse the regular condition, this allows for one set of code down below (even if it gets converted back)
-                kwargs['condition'] = condition_rev_map[kwargs['condition']]
-
-            # check the part for explicit conditions
-            elif isinstance(newpart, dict):
-                _chained = False
-                for t in ['and', 'or', 'not']:
-                    if t in newpart:
-                        kwargs['with_explicit'] = t
-                        self.chain(newpart, **kwargs)
-                        _chained = True
-
-                # chained above should complete
-                if _chained:
-                    return self
-            # else there are no new explicit conditions. If _explicit is set we
-            # will use the last value
-
-            # go ahead and parse the newpart. This way when adding to the explicit conditions
-            # vs non-explicit we won't have to parse it twice
-            # existing conditions in the dictionary will just get parsed recursively
-            _condition = 'must'
-            if kwargs.get('condition') in ['must', 'should', 'must_not']:
-                _condition = kwargs.get('condition')
-            elif isinstance(newpart, dict):
-                _chained = False
-                for lt in ['must', 'should', 'must_not']:
-                    if lt in newpart:
-                        kwargs['condition'] = lt
-                        self.chain(newpart[lt], **kwargs)
-                        _chained = True
-                if _chained:
-                    return self
-            # else treat the condition as 'must'
-
-            if self._explicit:
-                # check to see if we need to move existing bools inside an explicit condition
-                for btype, ttype in condition_map.iteritems():
-                    if self._filter.get(btype):
-                        self._filter[ttype].extend(self._filter[btype])
-
-                        del self._filter[btype]
-
-                # we definitely have explicit conditions. Turn the condition into the explicit
-                self._explicit = _condition = condition_map[_condition]
-                self._filter[_condition].append(newpart)
-            else:
-                # chain the newpart to the toplevel bool
-                if _condition not in self._filter:
-                    self._filter[_condition] = []
-
-                self._filter[_condition].append(newpart)
-        # queries are much simpler
+            self._filter[_condition].append(newpart)
         else:
-            _condition = 'must'
-            if kwargs.get('condition') in ['must', 'should', 'must_not']:
-                _condition = kwargs.get('condition')
-            elif isinstance(newpart, dict):
-                _chained = False
-                for lt in ['must', 'should', 'must_not']:
-                    if lt in newpart:
-                        kwargs['condition'] = lt
-                        self.chain(newpart[lt], **kwargs)
-                        _chained = True
-                if _chained:
-                    return self
-            # else assume must
-
             if _condition not in self._query:
                 self._query[_condition] = []
+
             self._query[_condition].append(newpart)
 
         return self
 
     def is_filtered(self):
-        for t in ['must', 'should', 'must_not', 'and', 'or', 'not']:
+        for t in ['must', 'should', 'must_not']:
             if len(self._filter[t]) > 0:
                 return True
 
@@ -140,11 +81,9 @@ class QueryBody(object):
                 return True
 
     def build(self):
-        q = {}
         is_filtered = False
         is_query = False
         filter_is_multi_condition = False
-        query_is_multi_condition = False
         filter_needs_bool = False
         query_needs_bool = False
 
@@ -161,7 +100,7 @@ class QueryBody(object):
         _query = copy.deepcopy(self._query)
         _filter = copy.deepcopy(self._filter)
 
-        for t in ['and', 'or', 'not', 'must', 'should', 'must_not']:
+        for t in ['must', 'should', 'must_not']:
             try:
                 if len(_filter[t]) > 0:
                     is_filtered = True
@@ -171,7 +110,7 @@ class QueryBody(object):
                         _filter[t] = _filter[t][0]  # if only one remove the list
                         if t == "must_not":
                             filter_needs_bool = True  # still need if "must_not"
-                    elif t in ['must', 'should', 'must_not']:
+                    else:
                         filter_needs_bool = True
                 else:
                     del _filter[t]
@@ -197,15 +136,11 @@ class QueryBody(object):
                 pass
 
         if f_type_count > 1:
-            if not self._explicit:
-                filter_needs_bool = True
+            filter_needs_bool = True
             filter_is_multi_condition = True
 
         if q_type_count > 1:
-            query_is_multi_condition = True
             query_needs_bool = True
-
-        _output_query = {}
 
         if is_query:
             if query_needs_bool:
@@ -215,20 +150,19 @@ class QueryBody(object):
 
             _output_query = {'query': _output_query}
         else:
-            _output_query = {'query': {'match_all': {}}}
+            _output_query = {'query': qdsl.match_all()}
 
         if is_filtered:
-            _output_filter = {}
             if filter_needs_bool:
                 _output_filter = {'bool': _filter}
-            # elif len(_filter[f_type]) == 1:
-            #   _output_filter = _filter[f_type][0]
             elif filter_is_multi_condition or isinstance(_filter[f_type], list):
                 _output_filter = _filter  # explicit queries
             else:
                 _output_filter = _filter[f_type]
 
-            _output_query['filter'] = _output_filter
-            _output_query = {'query': {'filtered': _output_query}}
+            if not _output_query.get('bool'):
+                _output_query = qdsl.bool(qdsl.must(_output_query))
+
+            _output_query['bool']['filter'] = _output_filter
 
         return _output_query
