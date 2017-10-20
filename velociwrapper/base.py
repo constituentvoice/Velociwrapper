@@ -10,7 +10,6 @@ from . import config, querybuilder, qdsl
 from .connection import VWConnection
 from .config import logger
 from .util import unset, all_subclasses
-from .relationship import relationship
 from .es_types import *  # implements elastic search types
 
 
@@ -72,13 +71,12 @@ class VWCallback(object):
 
 
 class VWBase(VWCallback):
-    # connects to ES
     _watch = False
     _needs_update = False
     id = ''
     __index__ = None
 
-    def __init__(self, dsn=None, connection=None, _set_by_query=False, **kwargs):
+    def __init__(self, _set_by_query=False, **kwargs):
         # the internal document
         self._document = {}
 
@@ -86,7 +84,8 @@ class VWBase(VWCallback):
         # the object is pickled/unpickled. Allows all values to be set
         self._pickling = False
 
-        # relationships should not be executed when called from init (EVAR)
+        # TODO this flag is no longer used due to the removal of relationships
+        # but may be useful in the future so it is here for now.
         self._no_ex = True
 
         if _set_by_query:
@@ -182,14 +181,7 @@ class VWBase(VWCallback):
                     self._document[name] = v
                     return self._document[name]
 
-        # we want to keep the relationships if set_by_query in the collection
-        # so we only execute with direct access
-        # (we'll see, it might have an unintended side-effect)
-        # Relationships are not documented and really haven't been tested!
-        if isinstance(v, relationship) and not no_ex:
-            return v.execute(self)
-
-        elif isinstance(v, basestring):
+        if isinstance(v, basestring):
             try:
                 try:
                     return datetime.strptime(v, '%Y-%m-%dT%H:%M:%S')
@@ -199,62 +191,6 @@ class VWBase(VWCallback):
                 return v
         else:
             return v
-
-    # EXPERIMENTAL
-    def __set_relationship_value(self, name, value):
-        curr_value = self.__get_current_value(name)
-
-        # TODO ... this stuff is probably going to have to be rethought
-        currparams = curr_value.get_relational_params(self)
-        newparams = curr_value.get_reverse_params(self, value)
-
-        if isinstance(value, list) and curr_value.reltype == 'many':
-            if len(value) > 0:
-                for v in value:
-                    if not isinstance(v, VWBase):
-                        raise TypeError('Update to %s must be a list of \
-                            objects that extend VWBase' % name)
-
-        elif isinstance(value, VWBase) or value is None:
-            pass
-        else:
-            raise TypeError('Update to %s must extend VWBase or be None'
-                            % name)
-
-        for k, v in currparams.iteritems():
-            # if left hand value is a list
-            if isinstance(v, list):
-                newlist = []
-                # if our new value is a list we should overwrite
-                if isinstance(value, list):
-                    newlist = map(lambda item: getattr(item, k), value)
-
-                # otherwise append
-                else:
-                    # had to reset the list because I can't directly
-                    # append
-                    newlist = super(VWBase, self).__getattribute__(k)
-
-                object.__setattr__(self, k, newlist)
-            # if left hand value is something else
-            else:
-                # if we're setting a list then check that the relationship
-                # type is "many"
-                if isinstance(value, list) and curr_value.reltype == 'many':
-                    # if the length of the list is 0 we will null the value
-                    if len(value) < 1:
-                        relation_value = ''
-                    else:
-                        # the related column on all items would have
-                        # to be the same (and really there should only
-                        # be one but we're going to ignore that for now)
-                        relation_value = getattr(value[0], k)
-
-                    object.__setattr__(self, k, relation_value)
-                else:
-                    # set the related key to the related key value (v)
-                    if value:
-                        object.__setattr__(self, k, v)
 
     def __get_current_value(self, name):
         try:
@@ -362,15 +298,7 @@ class VWBase(VWCallback):
         if '_deleted' in dir(self) and self._deleted:
             raise ObjectDeletedError
 
-        # we need to do some magic if the current value is a relationship
-        curr_value = self.__get_current_value(name)
-
-        if (isinstance(curr_value, relationship) and not isinstance(value, relationship)):
-            self.__set_relationship_value(name, value)
-
-        # attribute is NOT a relationship
-        else:
-            self.__set_document_value(name, value)
+        self.__set_document_value(name, value)
 
     def commit(self, connection=None, **kwargs):
         # save in the db

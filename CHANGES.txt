@@ -283,3 +283,7 @@
           The "and, or, not" syntax is deprecated in ES 2.0 and removed in 5.0.  `condition=and|or|not` is still
           supported and will always be converted to the ES `must|should|must_not` respectively
         - filtered() is removed from qdsl.py
+
+    REMOVED FEATURES:
+        - The experimental relationship features are removed as they were never completed. Raw queries can be
+          used to make use of relationship functionality internal to ElasticSearch
