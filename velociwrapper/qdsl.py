@@ -154,25 +154,6 @@ def constant_score(*args, **kwargs):
     return output
 
 
-def filtered(*args, **kwargs):
-    output = {'filtered': {}}
-    if len(args) == 1 and isinstance(args[0], dict):
-        output['filtered'] = args[0]
-    else:
-        for arg in args:
-            if not isinstance(arg, dict):
-                raise TypeError('Arguments to filtered() must be type dict')
-
-            if 'filter' in arg:
-                output['filtered']['filter'] = arg['filter']
-
-            if 'query' in arg:
-                output['filtered']['query'] = arg['query']
-
-    output['filtered'].update(kwargs)
-    return output
-
-
 # mostly for completeness. Not much magic going on here
 def function_score(*args, **kwargs):
     output = {'function_score': {}}

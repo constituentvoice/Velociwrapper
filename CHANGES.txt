@@ -263,12 +263,23 @@
     - Fixed an issue where datetimes were being truncated to dates
 
 3.0.0
-    - config.dsn and config.connection_parameters are removed and replaced by a connection class
-    - connection class must be imported and a connection made. A connection must be made the default connection
-      or all methods requiring a connection must be passed a connection
-    - VWBase.commit(), VWBase.more_like_this(), VWCollection.all(), VWCollection.one() and VWCollection.commit()
-      now accept a connection parameter
-    - filter_by() now accepts a dict of parameters rather than just keyword arguments. keyword arguments for field
-      names are now deprecated and will be removed in a future version. As of ES 2.0, nested field names have to be
-      explicitly specified but couldn't be as a keyword argument
-    - Updated methods in mapper to use VWConnection and
+    Third major release. Includes support for ES 2.0+. Greatly cleans up and simplifies the code. Due to changes in
+    QDSL the module will no longer work with the 1.x versions of ElasticSearch
+
+    CONFIGURATION CHANGES:
+        - config.dsn and config.connection_parameters are removed and replaced by a connection class
+        - a default connection will be used if not specified by the APIs
+
+    API CHANGES:
+        - connection class must be imported and a connection made. A connection must be made the default connection
+          or all methods requiring a connection must be passed a connection
+        - VWBase.commit(), VWBase.more_like_this(), VWCollection.all(), VWCollection.one() and VWCollection.commit()
+          now accept a connection parameter
+        - Updated methods in mapper to use VWConnection
+        - filter_by() now accepts a dict of parameters rather than just keyword arguments. keyword arguments for field
+          names are now deprecated and will be removed in a future version. As of ES 2.0, nested field names have to be
+          explicitly specified but couldn't be as a keyword argument
+        - filter_by() no longer accepts `with_explicit`, `explicit_and`, `explicit_or` or `explicit_not` options.
+          The "and, or, not" syntax is deprecated in ES 2.0 and removed in 5.0.  `condition=and|or|not` is still
+          supported and will always be converted to the ES `must|should|must_not` respectively
+        - filtered() is removed from qdsl.py
