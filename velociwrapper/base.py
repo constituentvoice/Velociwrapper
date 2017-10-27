@@ -1,3 +1,5 @@
+from __future__ import absolute_import, unicode_literals, division, print_function
+from six import iteritems
 import types
 import copy
 from datetime import date, datetime
@@ -134,7 +136,7 @@ class VWBase(VWCallback):
         # break things when flags are removed
         retval = {}
 
-        for k, v in self.__dict__.iteritems():
+        for k, v in iteritems(self.__dict__):
             if k != '_es' and k != '_pickling':
                 retval[k] = copy.deepcopy(v)
 
@@ -144,7 +146,7 @@ class VWBase(VWCallback):
     def __setstate__(self, state):
         self._pickling = True
 
-        for k, v in state.iteritems():
+        for k, v in iteritems(state):
             setattr(self, k, v)
 
         self._pickling = False
@@ -419,7 +421,7 @@ class VWCollection(VWCallback):
             return value
 
     def _check_datetime_dict(self, kwargs_dict):
-        for k, v in kwargs_dict.iteritems():
+        for k, v in iteritems(kwargs_dict):
             kwargs_dict[k] = self._check_datetime(v)
 
         return kwargs_dict
@@ -433,7 +435,7 @@ class VWCollection(VWCallback):
 
         parameters.update(kwargs)
 
-        for k, v in parameters.iteritems():
+        for k, v in iteritems(parameters):
             if isinstance(v, list):
                 v = [self._check_datetime(vi) for vi in v]
             else:
@@ -582,7 +584,7 @@ class VWCollection(VWCallback):
             return []
 
     def sort(self, **kwargs):
-        for k, v in kwargs.iteritems():
+        for k, v in iteritems(kwargs):
             v = v.lower()
             if v not in ['asc', 'desc']:
                 v = 'asc'
@@ -627,8 +629,13 @@ class VWCollection(VWCallback):
     def __len__(self):
         return self.count()
 
-    def limit(self, count):
-        self.results_per_page = count
+    def limit(self, start, count=None):
+        if not count:
+            count = start
+            start = 0
+
+        self.limits = (start, count)
+
         return self
 
     def all(self, connection=None, **kwargs):

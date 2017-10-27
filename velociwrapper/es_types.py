@@ -1,446 +1,236 @@
+from __future__ import absolute_import, division, print_function, unicode_literals
+from six import string_types, iteritems, with_metaclass
+import socket
 from datetime import date, datetime
 import re
 
-from .config import logger
-
-__all__ = [
-    'create_es_type', 'is_analyzed', 'ESType', 'Array', 'String', 'Number', 'Float', 'Double', 'Integer', 'Long',
-    'Short', 'Byte', 'TokenCount', 'DateTime', 'Date', 'Boolean', 'IP', 'GeoPoint', 'GeoShape', 'Attachment'
-]
-
-
-# check the python type and return the appropriate ESType class
-def create_es_type(value):
-    # check if we're already an es type
-    try:
-        if value.__metaclass__ == ESType:
-            return value
-    except:
-        pass
-
-    if isinstance(value, basestring):
-        # strings could be a lot of things
-        # try to see if it might be a date
-
-        # dateutil isn't good at determining if we have a date (ok at parsing if we know there's a date). To that end we'll only accept a couple of valid formats
-        test_date = value.strip()
-        test_date = re.sub("(?:Z|\s*[\+\-]\d\d:?\d\d)$", '', test_date)
+# The metaclass is defined to allow additional elasticsearch keywords to be passed
+# to normal objects
+class VWMeta(type):
+    def __call__(cls, *args, **kwargs):
+        es_args = {}
+        if isinstance(kwargs.get('es_properties'), dict):
+            es_args = kwargs['es_properties']
 
         try:
-            test_date = datetime.strptime(test_date, '%Y-%m-%d %H:%M:%S')
-            return DateTime(test_date)
-
-        except ValueError:
-            try:
-                test_date = datetime.strptime(test_date, '%Y-%m-%dT%H:%M:%S')
-                return DateTime(test_date)
-            except ValueError:
-
-                try:
-                    test_date = datetime.strptime(test_date, '%Y-%m-%dT%H:%M:%S.%f')
-                    return DateTime(test_date)
-                except ValueError:
-                    try:
-                        test_date = datetime.strptime(test_date, '%Y-%m-%d')
-                        return Date(test_date.date())
-                    except ValueError:
-                        pass
-
-        # see if it might be an ip address
-        try:
-            matches = re.search('^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$', value)
-            if matches:
-                valid_ip = True
-                for g in matches.groups():
-                    g = int(g)
-                    if g < 1 or g > 254:
-                        # nope
-                        valid_ip = False
-
-                if valid_ip:
-                    return IP(value)
-        except:
+            del kwargs['es_properties']
+        except KeyError:
             pass
 
-        if isinstance(value, unicode):
-            if value.isnumeric():
-                return Number(value)
-            else:
-                return String(value)
 
-        return String(value)
-
-    if isinstance(value, int):
-        return Integer(value)
-
-    if isinstance(value, bool):
-        return Boolean(value)
-
-    if isinstance(value, long):
-        return Long(value)
-
-    if isinstance(value, float):
-        return Float(value)
-
-    if isinstance(value, datetime):
-        return DateTime(value)
-
-    if isinstance(value, date):
-        return Date(value)
-
-    # if here, just return the value as is
-    return value
-
-
-# this is to determine if the field should be analyzed
-# based on type and settings. Used a lot to determine whether to use
-# term filters or matches
-# works with estypes and non-estypes
-def is_analyzed(value):
-    analyzed = True
-    check_defaults = False
-    try:
-        if value.__metaclass__ == ESType:
-            if isinstance(value, String) or isinstance(value, Array):
-                analyzed = value.es_args().get('analyzed')
-                if analyzed == None:
-                    analyzed = True
-            else:
-                analyzed = False
-        else:
-            check_defaults = True
-    except AttributeError:
-        check_defaults = True
-
-    if check_defaults:
-        analyzed = False
-        if isinstance(value, object):  # this likely should't happen
-            analyzed = True
-        else:
-            checklist = []
-            if isinstance(value, list):
-                checklist = value
-            else:
-                checklist = [value]
-
-            for item in checklist:
-                if isinstance(value, basestring):
-                    analyzed = True
-                    break
-
-    return analyzed
-
-
-class ESType(type):
-    @classmethod
-    def build_map(cls, d):
-
-        if isinstance(d, list):
-            out_list = []
-            for i in d:
-                out_list.append(cls.build_map(i))
-            return out_list
-
-        elif isinstance(d, dict):
-            output = {}
-
-            for k, v in d.iteritems():
-                if isinstance(v, dict):
-                    output[k] = cls.build_map(v)
-                else:
-                    try:
-                        if v.__metaclass__ == ESType:
-                            output[k] = v.prop_dict()
-                        else:
-                            output[k] = v
-                    except:
-                        output[k] = v
-            return output
-
-        return {}  # I *think* we should never end up here
-
-    def __new__(cls, clsname, bases, dct):
-        # default accepted properties on various classes
-        # the values are set by ES and are only here for completeness
-        dct['__es_properties__'] = {
-            'Any': {
-                'index_name': '',
-                'store': False,
-                'boost': '1.0',
-                'null_value': None,
-                'include_in_all': True,
-                'doc_values': False,
-                'fielddata': {},
-                'copy_to': '',
-                'similarity': 'default',
-                'fields': {},
-                'meta_': {}
-            },
-            'String': {
-                'analyzed': True,
-                'norms': False,
-                'index_options': None,
-                'analyzer': 'default',
-                'index_analyzer': 'default',
-                'search_analyzer': 'default',
-                'ignore_above': 'default',
-                'position_offset_gap': 0,
-                'value_': '',
-                'boost_': '1.0'
-            },
-            'Number': {
-                'type_': 'float',
-                'index_': 'no',
-                'precision_step': 16,
-                'ignore_malformed': False,
-                'coerce': True
-            },
-            'Integer': {
-                'type_': 'float',
-                'index_': 'no',
-                'precision_step': 16,
-                'ignore_malformed': False,
-                'coerce': True
-            },
-            'Long': {
-                'type_': 'long',
-                'index_': 'no',
-                'precision_step': 16,
-                'ignore_malformed': False,
-                'coerce': True
-            },
-            'Date': {
-                'format': 'dateOptionalTime',
-                'precision_step': 16,
-                'ignore_malformed': False
-            },
-            'DateTime': {
-                'type_': 'date',  # set explicitly because ES only has type as "date"
-                'format': 'dateOptionalTime',
-                'precision_step': 16,
-                'ignore_malformed': False
-            },
-            'Binary': {
-                'compress': False,
-                'compress_threshold': -1
-            },
-            'IP': {
-                'precision_step': 16
-            },
-            'GeoPoint': {
-                'type_': 'geo_point',
-                'lat_lon': False,
-                'geohash': False,
-                'geohash_precision': 12,
-                'geohash_prefix': False,
-                'validate': False,
-                'validate_lat': False,
-                'validate_lon': False,
-                'normalize': True,
-                'normalize_lat': False,
-                'normalize_lon': False,
-                'precision_step': 16
-            },
-            'GeoShape': {
-                'tree': 'geohash',
-                'tree_levels': '',
-                'distance_error_pct': 0.5
-            }
-            # attachment not specified because it has no other args
-        }
-
-        dct['__es_properties__']['Array'] = {}
-        for k, v in dct['__es_properties__'].iteritems():
-            if k == 'Array':
-                continue
-
-            dct['__es_properties__']['Array'].update(v)
-
-        def get_prop_dict(self):
-            es_type = self.__class__.__name__.lower()
-            prop_dict = {"type": es_type}
-
-            valid = []
-            for obj in self.__class__.mro():
-                if obj.__name__ in self.__es_properties__:
-                    valid.extend(list(self.__es_properties__.get(obj.__name__)))
-
-            valid.extend(list(self.__es_properties__.get('Any')))
-
-            for k in dir(self):
-                if k in valid:
-                    v = getattr(self, k)
-
-                    keyname = k
-                    if k[len(k) - 1] == "_":
-                        if k in ['meta_', 'value_', 'boost_']:
-                            keyname = '_' + k[0:len(k) - 1]
-                        else:
-                            keyname = k[0:len(k) - 1]
-
-                    elif k == 'analyzed':
-                        keyname = 'index'
-                        if v or v == None:
-                            v = 'analyzed'
-                        else:
-                            v = 'not_analyzed'
-
-                    if v != None:
-                        if isinstance(v, dict) or isinstance(v, list):
-                            v = self.__class__.build_map(v)
-
-                        prop_dict[keyname] = v
-
-            return prop_dict
-
-        # for recreating the arguments in a new instance
-        def get_es_arguments(self):
-            arg_dict = {}
-            valid = {}
-            valid.update(self.__es_properties__.get('Any'))
-
-            try:
-                valid.update(self.__es_properties__.get(self.__class__.__name__))
-            except TypeError:
-                pass
-
-            for k in dir(self):
-                if k in valid:
-                    v = getattr(self, k)
-                    arg_dict[k] = v
-            return arg_dict
-
-        dct['prop_dict'] = get_prop_dict
-        dct['es_args'] = get_es_arguments
-
-        return super(ESType, cls).__new__(cls, clsname, bases, dct)
-
-    def __call__(cls, *args, **kwargs):
-        # we have to split kw args going to the base class
-        # and args that are for elastic search
-        # annoying but not a big deal
-        base_kwargs = {}
-        es_kwargs = {}
-        _name_ = cls.__name__
-
-        valid = []
-        for obj in cls.mro():
-            if obj.__name__ in cls.__es_properties__:
-                valid.extend(list(cls.__es_properties__.get(obj.__name__)))
-        valid.extend(list(cls.__es_properties__.get('Any')))
-
-        for k, v in kwargs.iteritems():
-            if k in valid:
-                es_kwargs[k] = v
-            else:
-                base_kwargs[k] = v
-
-        # fix for datetime calls. I really dont like this but I can't seem
-        # to hook it anywhere
-
-        if len(args) == 1:
-            a = args[0]
-            if cls == DateTime and isinstance(a, datetime):
-                args = [a.year, a.month, a.day, a.hour, a.minute, a.second]
-
-                if a.tzinfo:
-                    base_kwargs['tzinfo'] = a.tzinfo
-
-            elif cls == Date and isinstance(a, date):
-                args = [a.year, a.month, a.day]
-
-        inst = super(ESType, cls).__call__(*args, **base_kwargs)
-
-        for k, v in es_kwargs.iteritems():
-            setattr(inst, k, v)  # testing
+        inst = super(VWMeta, cls).__call__(*args, **kwargs)
+        inst.__es_properties__ = es_args
 
         return inst
 
+class ESType(with_metaclass(VWMeta, object)):
+    _analyzed = None
 
-# lists
-class Array(list):
-    __metaclass__ = ESType
+    @classmethod
+    def create(cls, value):
+        # see if we already are an ESType
+        if isinstance(value, cls):
+            return value
+
+        if isinstance(value, string_types):
+            # strings could be a lot of things
+            # try to see if it's a date
+
+            test_date = value.strip()
+            test_date = re.sub("(?:Z|\s*[\+\-]\d\d:?\d\d)$", '', test_date)
+
+            try:
+                test_date = datetime.strptime(test_date, '%Y-%m-%d %H:%M:%S')
+                return DateTime(test_date)
+            except ValueError:
+                try:
+                    test_date = datetime.strptime(test_date, '%Y-%m-%dT%H:%M:%S')
+                    return DateTime(test_date)
+                except ValueError:
+                    try:
+                        test_date = datetime.strptime(test_date,'%Y-%m-%dT%H:%M:%S.%f')
+                        return DateTime(test_date)
+                    except ValueError:
+                        try:
+                            test_date = datetime.strptime(test_date,'%Y-%m-%d')
+                            return Date(test_date.date())
+                        except ValueError:
+                            pass
+
+            # check for an IP address
+            try:
+                socket.inet_aton(value)
+                return IP(value)
+            except socket.error:
+                pass
+
+            # check for numeric type
+            try:
+                if value.isnumeric():
+                    return Number(value)
+                else:
+                    return String(value)
+            except AttributeError:
+                # TODO this could be a byte string
+                # which could cause problems, we may need to try to detect
+                return String(value)
+
+        # not a string, start checking for other types
+        if isinstance(value, int):
+            return Integer(value)
+
+        if isinstance(value, bool):
+            return Boolean(value)
+
+        if isinstance(value, long):
+            return Long(value)
+
+        if isinstance(value, float):
+            return Float(value)
+
+        if isinstance(value, datetime):
+            return DateTime(value)
+
+        if isinstance(value, date):
+            return Date(value)
+
+        # else just return the value itself
+        return value
+
+    # this is to determine if the field should be analyzed
+    # based on type and settings. Used a lot to determine whether to use
+    # term filters or matches
+    # works with estypes and non-estypes
+    @classmethod
+    def is_analyzed(cls, value):
+        analyzed = True
+
+        if isinstance(value, cls):
+            if isinstance(value, String) or isinstance(value, Array):
+                analyzed = value.analyzed
+            else:
+                analyzed = False
+
+        elif isinstance(value, list):
+            try:
+                analyzed = next(True for item in value if isinstance(item, string_types))
+            except StopIteration:
+                analyzed = False
+
+        else:
+            analyzed = False
+
+        return analyzed
+
+    @classmethod
+    def build_map(cls, d):
+        if isinstance(d, list):
+            return [cls.build_map(i) for i in d]
+        elif isinstance(d, dict):
+            output = {}
+            for (k,v) in iteritems(d):
+                if isinstance(v, dict):
+                    output[k] = cls.build_map(v)
+                else:
+                    v = cls.create(v)
+                    output[k] = v.prop_dict()
+
+            return output
+        else:
+            d = cls.create(d)
+            return d.prop_dict()
+
+    @property
+    def analyzed(self):
+        if self._analyzed is None:
+            if self.__class__ == Keyword:
+                return False
+            else:
+                return True
+        else:
+            return self._analyzed
+
+    @analyzed.setter
+    def set_analyzed(self, analyzed_value):
+        self._analyzed = analyzed_value
+
+    def prop_dict(self):
+        es_type = self.__class__.__name__.lower()
+        _output = {"type": es_type}
+        _output.update(self.__es_properties__)
+
+        if self.analyzed:
+            _output['index'] = True
+        elif self.analyzed is False:
+            _output['index'] = False
+
+        return _output
+
+class Array(list, ESType):
     type_ = 'string'  # default
 
 
-# converts strings to unicode
-class String(unicode):
-    __metaclass__ = ESType
+class String(str, ESType):
+    type_ = 'string'
+    _analyzed=True,
+    __es_properties__ = {}
 
 
-class Number(float):
-    __metaclass__ = ESType
-    precision_step = 8
-    coerce_ = True
+class Text(String):
+    type_ = 'text',
+    _analyzed = True
+    __es_properties__ = {}
 
 
-class Float(Number):
-    type_ = 'float'
+class Keyword(str, ESType):
+    _analyzed = False
+    __es_properties__ = {}
 
 
-class Double(Number):
-    __metaclass__ = ESType
-    type_ = 'double'
-    precision_step = 16
+class Number(ESType):
+    __es_properties__ = dict(
+        precision_step=16,
+        ignore_malformed=False,
+        coerce=True
+    )
 
 
-class Integer(int):
-    __metaclass__ = ESType
-    precision_step = 8
-    coerce_ = True
+class Integer(int, Number):
     type_ = 'integer'
+    __es_properties__ = dict(
+        Number.__es_properties__,
+    )
 
 
-class Long(long):
-    __metaclass__ = ESType
-    coerce_ = True
+class Long(long, Number):
     type_ = 'long'
-    precision_step = 16
+    __es_properties__ = dict(
+        Number.__es_properties__
+    )
 
 
-class Short(Integer):
+class Float(float, Number):
+    type_ = 'float'
+    __es_properties__ = dict(
+        Number.__es_properties__
+    )
+
+
+class Double(float, Number):
+    type_ = 'double'
+    __es_properties__ = dict(
+        Number.__es_properties__
+    )
+
+
+class Short(int, Number):
     type_ = 'short'
+    __es_properties__ = dict( Number.__es_properties__ )
 
 
-class Byte(Number):
-    __metaclass__ = ESType
-    type_ = 'byte'
-    precision_step = 2147483647  # wat? (its from the ES docs)
-
-
-class TokenCount(Number):
-    __metaclass__ = ESType
-    analyzer = 'standard'
-
-
-class DateTime(datetime):
-    __metaclass__ = ESType
-    type_ = 'date'
-    precision_step = 16
-    ignore_malformed = False
-
-    def date(self):
-        value = super(DateTime, self).date()
-        return Date(value)
-
-        # TODO allow format changes
-        # for now just does default
-
-
-class Date(date):
-    __metaclass__ = ESType
-    precision_step = 16
-    ignore_malformed = False
-
-
-class Boolean(object):
-    # can't extend bool :(
-    # making it extend int did weird things in ES
-    # so it extends object and tries to act like a bool
-    # in base this class is detected and regular bools are always set as the attribute to be sent
-    __metaclass__ = ESType
-
-    def __init__(self, value, **kwargs):
+class Boolean(ESType):
+    type_ = 'boolean'
+    def __init__(self, value):
         self.value = bool(value)
 
     def __nonzero__(self):
@@ -449,39 +239,71 @@ class Boolean(object):
     def __repr__(self):
         return str(self.value)
 
+class DateTime(datetime, ESType):
+    type_ = 'date'
+    __es_properties__ = {}
+
+    def __new__(cls, *args, **kwargs):
+        try:
+            args[0]
+        except IndexError:
+            args[0] = datetime.now()
+
+
+        if isinstance(args[0], datetime):
+            a = args[0]
+            args = [a.year, a.month, a.day, a.hour, a.minute, a.second, a.microsecond, a.tzinfo]
+
+        return super(DateTime, cls).__new__(*args,**kwargs)
+
+    def date(self):
+        value = super(DateTime, self).date()
+        return Date(value)
+
+
+
+class Date(date, ESType):
+    type_ = 'date'
+    __es_properties__ = {}
+
+    def __new__(cls, *args, **kwargs):
+        try:
+            args[0]
+        except IndexError:
+            args[0] = date.today()
+
+        if isinstance(args[0], date):
+            a = args[0]
+            args = [a.year, a.month, a.day]
+
+        return super(Date, cls).__new__(*args, **kwargs)
+
+
+# TODO eventually this should subclass the ipaddress module in Python 3.3+
+class IP(str, ESType):
+    type_ = 'ip'
+    __es_properties__ = {}
 
 class Binary(object):
-    __metaclass__ = ESType
-    compress = False
-    compress_threshold = -1
+    type_ = 'binary'
+    __es_properties__ = {}
 
-
-class IP(String):
-    __metaclass__ = ESType
-
-
-class GeoPoint(object):
-    __metaclass__ = ESType
+class GeoPoint(ESType):
     type_ = 'geo_point'
-    lat_lon = False
-    geohash = False
-    geohash_precision = None  # use default
-    geohash_prefix = False
-    validate = False
-    validate_lat = False
-    validate_lon = False
-    normalize = True
-    normalize_lat = False
-    normalize_lon = False
+    __es_properties__ = {}
+
+class TokenCount(ESType):
+    type_ = 'token_count'
+    __es_properties__ = {}
+
+class Percolator(ESType):
+    type_ = 'percolator'
+    __es_properties__ = {}
+
+class Join(ESType):
+    type_ = 'join'
+    __es_properties__ = {}
 
 
-class GeoShape(object):
-    __metaclass__ = ESType
-    tree = 'geohash'
-    precision = 'meters'
-
-    # TODO - do we want to internally implement all the GeoJSON that goes along with this?
 
 
-class Attachment(object):
-    __metaclass__ = ESType
