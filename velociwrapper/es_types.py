@@ -4,6 +4,9 @@ import socket
 from datetime import date, datetime
 import re
 
+__all__ = ['ESType', 'Array', 'String', 'Text', 'Number', 'Keyword', 'Integer', 'Long', 'Float', 'Double', 'Short',
+           'Boolean', 'DateTime', 'Date', 'IP', 'Binary', 'GeoPoint', 'TokenCount', 'Percolator', 'Join']
+
 # The metaclass is defined to allow additional elasticsearch keywords to be passed
 # to normal objects
 class VWMeta(type):
@@ -17,17 +20,18 @@ class VWMeta(type):
         except KeyError:
             pass
 
-
         inst = super(VWMeta, cls).__call__(*args, **kwargs)
         inst.__es_properties__ = es_args
 
         return inst
 
+
 class ESType(with_metaclass(VWMeta, object)):
     _analyzed = None
+    __es_properties__ = {}  # should always be overridden
 
     @classmethod
-    def create(cls, value):
+    def create(cls, value, es_properties=None):
         # see if we already are an ESType
         if isinstance(value, cls):
             return value
@@ -37,62 +41,62 @@ class ESType(with_metaclass(VWMeta, object)):
             # try to see if it's a date
 
             test_date = value.strip()
-            test_date = re.sub("(?:Z|\s*[\+\-]\d\d:?\d\d)$", '', test_date)
+            test_date = re.sub("(?:Z|\s*[+\-]\d\d:?\d\d)$", '', test_date)
 
             try:
                 test_date = datetime.strptime(test_date, '%Y-%m-%d %H:%M:%S')
-                return DateTime(test_date)
+                return DateTime(test_date, es_properties=es_properties)
             except ValueError:
                 try:
                     test_date = datetime.strptime(test_date, '%Y-%m-%dT%H:%M:%S')
-                    return DateTime(test_date)
+                    return DateTime(test_date, es_properties=es_properties)
                 except ValueError:
                     try:
-                        test_date = datetime.strptime(test_date,'%Y-%m-%dT%H:%M:%S.%f')
-                        return DateTime(test_date)
+                        test_date = datetime.strptime(test_date, '%Y-%m-%dT%H:%M:%S.%f')
+                        return DateTime(test_date, es_properties=es_properties)
                     except ValueError:
                         try:
-                            test_date = datetime.strptime(test_date,'%Y-%m-%d')
-                            return Date(test_date.date())
+                            test_date = datetime.strptime(test_date, '%Y-%m-%d')
+                            return Date(test_date.date(), es_properties=es_properties)
                         except ValueError:
                             pass
 
             # check for an IP address
             try:
                 socket.inet_aton(value)
-                return IP(value)
+                return IP(value, es_properties=es_properties)
             except socket.error:
                 pass
 
             # check for numeric type
             try:
                 if value.isnumeric():
-                    return Number(value)
+                    return Float(value, es_properties=es_properties)
                 else:
-                    return String(value)
+                    return String(value, es_properties=es_properties)
             except AttributeError:
                 # TODO this could be a byte string
                 # which could cause problems, we may need to try to detect
-                return String(value)
+                return String(value, es_properties=es_properties)
 
         # not a string, start checking for other types
         if isinstance(value, int):
-            return Integer(value)
+            return Integer(value, es_properties=es_properties)
 
         if isinstance(value, bool):
-            return Boolean(value)
+            return Boolean(value, es_properties=es_properties)
 
         if isinstance(value, long):
-            return Long(value)
+            return Long(value, es_properties=es_properties)
 
         if isinstance(value, float):
-            return Float(value)
+            return Float(value, es_properties=es_properties)
 
         if isinstance(value, datetime):
-            return DateTime(value)
+            return DateTime(value, es_properties=es_properties)
 
         if isinstance(value, date):
-            return Date(value)
+            return Date(value, es_properties=es_properties)
 
         # else just return the value itself
         return value
@@ -103,7 +107,6 @@ class ESType(with_metaclass(VWMeta, object)):
     # works with estypes and non-estypes
     @classmethod
     def is_analyzed(cls, value):
-        analyzed = True
 
         if isinstance(value, cls):
             if isinstance(value, String) or isinstance(value, Array):
@@ -128,7 +131,7 @@ class ESType(with_metaclass(VWMeta, object)):
             return [cls.build_map(i) for i in d]
         elif isinstance(d, dict):
             output = {}
-            for (k,v) in iteritems(d):
+            for (k, v) in iteritems(d):
                 if isinstance(v, dict):
                     output[k] = cls.build_map(v)
                 else:
@@ -151,7 +154,7 @@ class ESType(with_metaclass(VWMeta, object)):
             return self._analyzed
 
     @analyzed.setter
-    def set_analyzed(self, analyzed_value):
+    def analyzed(self, analyzed_value):
         self._analyzed = analyzed_value
 
     def prop_dict(self):
@@ -166,13 +169,14 @@ class ESType(with_metaclass(VWMeta, object)):
 
         return _output
 
+
 class Array(list, ESType):
     type_ = 'string'  # default
 
 
 class String(str, ESType):
     type_ = 'string'
-    _analyzed=True,
+    _analyzed = True,
     __es_properties__ = {}
 
 
@@ -225,11 +229,12 @@ class Double(float, Number):
 
 class Short(int, Number):
     type_ = 'short'
-    __es_properties__ = dict( Number.__es_properties__ )
+    __es_properties__ = dict(Number.__es_properties__)
 
 
 class Boolean(ESType):
     type_ = 'boolean'
+
     def __init__(self, value):
         self.value = bool(value)
 
@@ -239,6 +244,7 @@ class Boolean(ESType):
     def __repr__(self):
         return str(self.value)
 
+
 class DateTime(datetime, ESType):
     type_ = 'date'
     __es_properties__ = {}
@@ -247,19 +253,18 @@ class DateTime(datetime, ESType):
         try:
             args[0]
         except IndexError:
+            args = list(args)
             args[0] = datetime.now()
-
 
         if isinstance(args[0], datetime):
             a = args[0]
             args = [a.year, a.month, a.day, a.hour, a.minute, a.second, a.microsecond, a.tzinfo]
 
-        return super(DateTime, cls).__new__(*args,**kwargs)
+        return super(DateTime, cls).__new__(*args, **kwargs)
 
     def date(self):
         value = super(DateTime, self).date()
         return Date(value)
-
 
 
 class Date(date, ESType):
@@ -270,6 +275,7 @@ class Date(date, ESType):
         try:
             args[0]
         except IndexError:
+            args = list(args)
             args[0] = date.today()
 
         if isinstance(args[0], date):
@@ -284,26 +290,35 @@ class IP(str, ESType):
     type_ = 'ip'
     __es_properties__ = {}
 
+    def __new__(cls, value, es_properties=None):
+        try:
+            socket.inet_aton(value)
+        except socket.error:
+            raise ValueError('Not a valid IP address')
+
+        super(IP, cls).__new__(value, es_properties=es_properties)
+
+
 class Binary(object):
     type_ = 'binary'
     __es_properties__ = {}
+
 
 class GeoPoint(ESType):
     type_ = 'geo_point'
     __es_properties__ = {}
 
+
 class TokenCount(ESType):
     type_ = 'token_count'
     __es_properties__ = {}
+
 
 class Percolator(ESType):
     type_ = 'percolator'
     __es_properties__ = {}
 
+
 class Join(ESType):
     type_ = 'join'
     __es_properties__ = {}
-
-
-
-

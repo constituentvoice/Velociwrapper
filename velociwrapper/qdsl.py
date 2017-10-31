@@ -29,7 +29,7 @@ def multi_match(query, fields, **kwargs):
     return output
 
 
-def bool(*args, **kwargs):
+def bool_(*args, **kwargs):
     output = kwargs.get('__vw_set_current', {"bool": {}})
     try:
         del kwargs['__vw_set_current']
@@ -278,7 +278,7 @@ def simple_query_string(string, **kwargs):
     return query_string(string, **kwargs)
 
 
-def range(field, **kwargs):
+def range_(field, **kwargs):
     output = {"range": {}}
 
     if isinstance(field, dict):
@@ -405,7 +405,7 @@ def or_(*filters, **kwargs):
     return {"or": {'filters': filters, '_cache': kwargs.get('_cache', False)}}
 
 
-def exists(field, **kwargs):
+def exists(field):
     return {"exists": {"field": field}}
 
 
@@ -461,8 +461,8 @@ def has_parent(_type, **kwargs):
     return output
 
 
-def missing(field, **kwargs):
-    return {"missing": {"field": field}}
+def missing(field):
+    return must_not(exists(field))
 
 
 def script(script, **kwargs):

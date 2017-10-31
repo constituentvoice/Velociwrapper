@@ -262,9 +262,10 @@
     - Mapper.get_sublcasses() now recursively finds subclasses
     - Fixed an issue where datetimes were being truncated to dates
 
-3.0.0
-    Third major release. Includes support for ES 2.0+. Greatly cleans up and simplifies the code. Due to changes in
-    QDSL the module will no longer work with the 1.x versions of ElasticSearch
+5.0.0
+    Third major release. We titled it 5.x to track with supported ElasticSearch versions. Includes support for ES 2.0+.
+    Greatly cleans up and simplifies the code. Due to changes in QDSL the module will no longer work with the 1.x
+    versions of ElasticSearch
 
     CONFIGURATION CHANGES:
         - config.dsn and config.connection_parameters are removed and replaced by a connection class
@@ -283,7 +284,23 @@
           The "and, or, not" syntax is deprecated in ES 2.0 and removed in 5.0.  `condition=and|or|not` is still
           supported and will always be converted to the ES `must|should|must_not` respectively
         - filtered() is removed from qdsl.py
+        - ESType now requires a dict passed to the `es_properties` keyword to set ElasticSearch mapping properties. All
+          other keyword arguments are passed to the underlying constructor
+        - ESType is no longer a metaclass (but does have a metaclass VWMeta). All other types now subclass ESType as
+          well as their base type (if applicable). This means if you wish to check for an ESType you can now use
+          isinstance(). Checking for the metaclass will no longer work.
+        - Standalone functions create_es_type() and is_analyzed() have been removed from es_types.py and change to
+          ESType.create() and ESType.is_analyzed() (note these are class methods)
+        - Elasticsearch removed the generic Number() type so calls to ESType.create() will convert string-like numbers
+          to Float() (which is technically what happened anyway but now they will be ESType).
+        - `limit()` now accepts a start parameter. Can be used like `.limit(start, num_results)` or just
+          `.limit(num_results)`. This is the preferred way to limit the result-set. (See changes to `all()`
+        - results_per_page is no longer supported by calls to `all()`. `start` and `size` still work but should be
+          considered deprecated. `limit()` is the preferred way to limit the results
+
 
     REMOVED FEATURES:
         - The experimental relationship features are removed as they were never completed. Raw queries can be
-          used to make use of relationship functionality internal to ElasticSearch
+          used to make use of relationship functionality internal to ElasticSearch. The Join type is implemented
+          in ESType. Future versions may try to create Velociwrapper objects from Join relationships
+        - create_es_type() function is removed and replaced by ESType.create()

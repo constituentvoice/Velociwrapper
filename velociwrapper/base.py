@@ -1,10 +1,10 @@
 from __future__ import absolute_import, unicode_literals, division, print_function
-from six import iteritems
+from six import iteritems, string_types
 import types
 import copy
-from datetime import date, datetime
 from uuid import uuid4
 import json
+from datetime import datetime, date
 
 from elasticsearch import NotFoundError, helpers, client
 
@@ -12,7 +12,8 @@ from . import config, querybuilder, qdsl
 from .connection import VWConnection
 from .config import logger
 from .util import unset, all_subclasses
-from .es_types import *  # implements elastic search types
+# implements elastic search types
+from .es_types import ESType, DateTime, Date, Boolean
 
 
 class ObjectDeletedError(Exception):
@@ -152,13 +153,6 @@ class VWBase(VWCallback):
         self._pickling = False
 
     def __getattribute__(self, name):
-        # ok this is much funky
-        no_ex = False
-        try:
-            no_ex = super(VWBase, self).__getattribute__('_no_ex')
-        except AttributeError:
-            pass
-
         v = unset
         doc = None
         try:
@@ -183,7 +177,7 @@ class VWBase(VWCallback):
                     self._document[name] = v
                     return self._document[name]
 
-        if isinstance(v, basestring):
+        if isinstance(v, string_types):
             try:
                 try:
                     return datetime.strptime(v, '%Y-%m-%dT%H:%M:%S')
@@ -209,10 +203,10 @@ class VWBase(VWCallback):
                                                   '_document', '_callbacks'] or self._pickling):
                 object.__setattr__(self, name, value)  # not copied
         else:
-            curr_value = create_es_type(self.__get_current_value(name))  # create as an es_type
+            curr_value = ESType.create(self.__get_current_value(name))  # create as an es_type
 
             try:
-                if value.__metaclass__ == ESType:
+                if isinstance(value, ESType):
                     set_value_cls = False
                 elif value is None:
                     set_value_cls = False
@@ -225,7 +219,6 @@ class VWBase(VWCallback):
                     set_value_cls = True
 
             if set_value_cls:
-                type_enforcement = False
                 try:
                     type_enforcement = self.__strict_types__
                 except AttributeError:
@@ -235,46 +228,29 @@ class VWBase(VWCallback):
                         type_enforcement = False
 
                 try:
-                    if curr_value.__metaclass__ == ESType:
+                    if isinstance(curr_value, ESType):
                         cls = curr_value.__class__
-                        params = curr_value.es_args()
+                        params = curr_value.prop_dict()
 
                         # try to set the value as the same class.
                         try:
-                            value = cls(value, **params)
-                        except:
+                            value = cls(value, es_properties=params)
+                        except ValueError:
                             # value didn't set. Try set as es_type
-                            test_value = create_es_type(value)
-
-                            # dates and times are special
-                            if isinstance(test_value, DateTime):
-                                if isinstance(curr_value, DateTime):
-                                    value = DateTime(test_value.year,
-                                                     test_value.month, test_value.day,
-                                                     test_value.hour, test_value.minute,
-                                                     test_value.second,
-                                                     test_value.microsecond,
-                                                     test_value.tzinfo, **params)
-                                elif isinstance(curr_value, Date):
-                                    value = Date(test_value.year,
-                                                 test_value.month, test_value.day,
-                                                 **params)
-                                else:
-                                    value = test_value
-                            else:
-                                value = test_value
+                            value = ESType.create(value, es_properties=params)
 
                         if type_enforcement:
                             try:
-                                if value.__class__ != curr_value.__class__:
-                                    raise TypeError('strict type enforcement is enabled. %s must be set with %s' % (
-                                        name, curr_value.__class__.__name__))
-                            except:
+                                if type(value) is not type(curr_value):
+                                    raise TypeError('strict type enforcement is enabled. ' +
+                                                    '{} must be set with {}'.format(name, str(curr_value.__class__)))
+                            except AttributeError:
                                 # errors where value isn't even a class
                                 # will raise their own exception.
                                 # Catch here to avoid attribute errors
                                 # from this block being passed along below
-                                raise
+                                raise TypeError('strict type enforcement is enabled. ' +
+                                                '{} must be set with {}'.format(name, str(curr_value.__class__)))
 
                 except AttributeError:
                     # curr_value couldn't be converted to an ESType
@@ -288,7 +264,7 @@ class VWBase(VWCallback):
             elif isinstance(value, Date) or isinstance(value, date):
                 self._document[name] = value.strftime('%Y-%m-%d')
             elif isinstance(value, Boolean):
-                self._document[name] = bool(value)
+                self._document[name] = bool(value)  # json is dumb
             else:
                 self._document[name] = value
 
@@ -357,20 +333,18 @@ class VWBase(VWCallback):
     # overridden!
     def to_dict(self):
         # copy so we don't overwrite the original document
-        return copy.deepcopy(self._create_source_document(datetime_format='%Y-%m-%d %H:%M:%S'))
+        return copy.deepcopy(self._create_source_document())
 
-    def _create_source_document(self, **kwargs):
+    def _create_source_document(self):
         output = self._document
         return output
 
     def more_like_this(self, **kwargs):
-        c = VWCollection(base_obj=self.__class__)
-        return c.get_like_this(self.id).all(**kwargs)
+        return self.collection().get_like_this(self.id, **kwargs)
 
     def collection(self):
         """
-        Returns an instantiated VWCollection class that has the model provided in base_obj.
-        @param base_obj: class
+        Returns an instantiated VWCollection class that has the model of the current class.
         @return: VWCollection
         """
         for vwcollection in all_subclasses(VWCollection):
@@ -387,11 +361,12 @@ class VWBase(VWCallback):
 class VWCollection(VWCallback):
     __model__ = None
 
-    def __init__(self, items=None, **kwargs):
+    def __init__(self, items=None, bulk_chunk_size=None, results_per_page=None, base_obj=None):
         self._items = items or []  # special list of items that can be committed in bulk
-        self.bulk_chunk_size = kwargs.get('bulk_chunk_size', config.bulk_chunk_size)
-        self.results_per_page = kwargs.get('results_per_page', config.results_per_page)
-        self.base_obj = kwargs.get('base_obj', self.__class__.__model__)
+        self.bulk_chunk_size = bulk_chunk_size or config.bulk_chunk_size
+        self.results_per_page = results_per_page or config.results_per_page
+        self.base_obj = base_obj or self.__class__.__model__
+
         if self.base_obj is None:
             raise AttributeError('Base object must contain a model or pass base_obj')
 
@@ -402,6 +377,7 @@ class VWCollection(VWCallback):
         self._raw = {}
         self._special_body = {}
         self._querybody = querybuilder.QueryBody()  # sets up the new query bodies
+        self.limits = (0, self.results_per_page)
 
     def search(self, query, **kwargs):
         self._querybody.chain(qdsl.query_string(query, **kwargs), type='query')
@@ -412,7 +388,8 @@ class VWCollection(VWCallback):
         self._raw = raw_request
         return self
 
-    def _check_datetime(self, value):
+    @staticmethod
+    def _check_datetime(value):
         if isinstance(value, datetime):
             return value.isoformat()
         elif isinstance(value, date):
@@ -458,9 +435,9 @@ class VWCollection(VWCallback):
                 self._querybody.chain(qdsl.ids(id_filter), condition=condition)
             else:
                 try:
-                    analyzed = is_analyzed(getattr(self.base_obj, k))
+                    analyzed = ESType.is_analyzed(getattr(self.base_obj, k))
                 except AttributeError:
-                    analyzed = is_analyzed(v)
+                    analyzed = ESType.is_analyzed(v)
 
                 q_type = 'filter'
                 if analyzed:
@@ -472,26 +449,20 @@ class VWCollection(VWCallback):
                         match_queries = []
                         for item in v:
                             match_queries.append(qdsl.match(k, item))
-                        self._querybody.chain(qdsl.bool(qdsl.should(match_queries)), condition=condition, type=q_type)
+                        self._querybody.chain(qdsl.bool_(qdsl.should(match_queries)), condition=condition, type=q_type)
                     else:
                         self._querybody.chain(qdsl.terms(k, v), condition=condition,
                                               type=q_type)
                 else:
                     # search_value = unicode(v)
                     if analyzed:
-                        self._querybody.chain(qdsl.match(unicode(k), v), condition=condition, type=q_type)
+                        self._querybody.chain(qdsl.match(str(k), v), condition=condition, type=q_type)
                     else:
-                        self._querybody.chain(qdsl.term(unicode(k), v), condition=condition, type=q_type)
+                        self._querybody.chain(qdsl.term(str(k), v), condition=condition, type=q_type)
 
         return self
 
-    def multi_match(self, fields, query, **kwargs):
-        condition = kwargs.get('condition', None)
-
-        try:
-            del kwargs['condition']
-        except KeyError:
-            pass
+    def multi_match(self, fields, query, condition=None, **kwargs):
 
         kwargs = self._check_datetime_dict(kwargs)
 
@@ -503,16 +474,17 @@ class VWCollection(VWCallback):
         try:
             field_template = getattr(self.base_obj, field)
 
-            if type(field_template) != ESType:
-                field_template = create_es_type(field_template)
+            if not isinstance(field_template, ESType):
+                field_template = ESType.create(field_template)
 
-            for estype in [String, IP, Attachment]:
-                if isinstance(field_template, estype) and field_template.analyzed == True:
-                    logger.warn('%s types may not exact match correctly if they are analyzed' % unicode(
-                        estype.__class__.__name__))
+            try:
+                if field_template.analyzed:
+                    logger.warn('Field is mapped as analyzed and may not match exactly as expected.')
+            except AttributeError:
+                logger.warn('Field could not be converted to an ESType. exact() may produce unexpected results.')
 
         except AttributeError:
-            logger.warn('%s is not in the base model.' % unicode(field))
+            logger.warn('{} is not in the base model.'.format(field))
 
         kwargs['type'] = 'filter'
         if isinstance(value, list):
@@ -522,10 +494,12 @@ class VWCollection(VWCallback):
 
         return self
 
-    def or_(self, *args):
+    @staticmethod
+    def or_(*args):
         return ' OR '.join(args)
 
-    def and_(self, *args):
+    @staticmethod
+    def and_(*args):
         return ' AND '.join(args)
 
     def get(self, id, connection=None, **kwargs):
@@ -557,7 +531,7 @@ class VWCollection(VWCallback):
 
         if len(ids) > 0:  # check for ids. empty list returns an empty list (instead of exception)
             # filter any Nones in the list as they crash the client
-            ids = [_id for _id in ids if _id != None]
+            ids = [_id for _id in ids if _id is not None]
             if len(ids) < 1:
                 return []
 
@@ -598,7 +572,7 @@ class VWCollection(VWCallback):
         self._querybody = querybuilder.QueryBody()
         self._sort = []
 
-    def _create_search_params(self, **kwargs):
+    def _create_search_params(self):
         # before_query_build() is allowed to manipulate the object's internal state before we do stuff
         self._querybody = self.execute_callbacks('before_query_build', self._querybody)
 
@@ -638,23 +612,24 @@ class VWCollection(VWCallback):
 
         return self
 
-    def all(self, connection=None, **kwargs):
+    def all(self, connection=None, start=None, size=None, **kwargs):
         if not connection:
             connection = VWConnection.get_connection()
 
         logger.info(connection)
 
+        if start is None:
+            start = 0
+
+        if size is not None:
+            size = config.results_per_page
+
+        if size > 0 or start > 0:
+            self.limits = (start, size)
+
         params = self._create_search_params()
-        if not params.get('size'):
-            params['size'] = self.results_per_page
-
-        if kwargs.get('results_per_page') != None:
-            kwargs['size'] = kwargs.get('results_per_page')
-            del kwargs['results_per_page']
-
-        if kwargs.get('start') != None:
-            kwargs['from_'] = kwargs.get('start')
-            del kwargs['start']
+        params['from_'] = self.limits[0]
+        params['size'] = self.limits[1]
 
         logger.debug(json.dumps(self._sort))
 
@@ -677,15 +652,15 @@ class VWCollection(VWCallback):
         return VWCollectionGen(self.base_obj, results)
 
     def one(self, **kwargs):
-        kwargs['results_per_page'] = 1
-        results = self.all(**kwargs)
+        results = self.limit(1).all(**kwargs)
         try:
             return results[0]
         except IndexError:
             raise NoResultsFound('No result found for one()')
 
     # this is for legacy purposes in filter_by
-    def _translate_bool_condition(self, _bool_condition):
+    @staticmethod
+    def _translate_bool_condition(_bool_condition):
         if _bool_condition == 'and':
             _bool_condition = 'must'
         elif _bool_condition == 'or':
@@ -695,20 +670,21 @@ class VWCollection(VWCallback):
 
         return _bool_condition
 
-    def range(self, field, **kwargs):
+    def range(self, field, condition=None, minimum_should_match=None, **kwargs):
         search_options = {}
-        for opt in ['condition', 'minimum_should_match']:
-            if opt in kwargs:
-                search_options[opt] = kwargs.get(opt)
-                del kwargs[opt]
+        if condition:
+            search_options['condition'] = condition
+
+        if minimum_should_match:
+            search_options['minimum_should_match'] = minimum_should_match
 
         kwargs = self._check_datetime_dict(kwargs)
 
-        q = qdsl.range(field, **kwargs)
+        q = qdsl.range_(field, **kwargs)
         if self._querybody.is_filtered():
-            d = {'filter': q}
+            d = qdsl.filter_(q)
         else:
-            d = {'query': q}
+            d = qdsl.query(q)
 
         if search_options:
             d.update(search_options)
@@ -726,12 +702,12 @@ class VWCollection(VWCallback):
                               condition=condition)
         return self
 
-    def missing(self, field, **kwargs):
+    def missing(self, field):
         self._querybody.chain(qdsl.filter_(qdsl.missing(field)))
         return self
 
-    def exists(self, field, **kwargs):
-        self._querybody.chain(qdsl.filter_(qdsl.exists(field, **kwargs)))
+    def exists(self, field):
+        self._querybody.chain(qdsl.filter_(qdsl.exists(field)))
         return self
 
     def delete(self, connection=None):
