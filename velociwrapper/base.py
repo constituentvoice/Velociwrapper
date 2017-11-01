@@ -16,6 +16,8 @@ from .util import unset, all_subclasses
 # implements elastic search types
 from .es_types import ESType, DateTime, Date, Boolean
 
+__all__ = ['ObjectDeletedError', 'NoResultsFound', 'VWCollectionGen', 'VWCallback', 'VWBase', 'VWConnection']
+
 
 class ObjectDeletedError(Exception):
     pass

@@ -1,3 +1,14 @@
+from __future__ import absolute_import
+from six import iteritems
+
+__all__ = ['query', 'filter_', 'match', 'match_phrase', 'match_phrase_prefix', 'multi_match', 'bool_', 'term', 'terms',
+           'must', 'must_not', 'should', 'boosting', 'positive', 'negative', 'common', 'constant_score',
+           'function_score', 'fuzzy', 'ids', 'query_term', 'indices', 'match_all', 'more_like_this', 'nested', 'prefix'
+           'query_string', 'simple_query_string', 'range_', 'regexp', 'span_term', 'span_first', 'span_multi',
+           'span_near', 'span_not', 'span_or', 'wildcard', 'exists', 'geo_bounding_box', 'geo_distance', 'geo_range'
+           'geo_polygon', 'geo_shape', 'geohash_cell', 'has_child', 'has_parent', 'missing', 'script', 'type_',
+           'highlight']
+
 def query(params):
     return {"query": params}
 
@@ -381,30 +392,6 @@ def wildcard(field, value, **kwargs):
     return output
 
 
-def and_(*filters, **kwargs):
-    if len(filters) == 1 and isinstance(filters[0], list):
-        filters = filters[0]
-    elif len(filters) == 1:
-        filters = [filters]
-
-    output = {"and": {'filters': filters}}
-    output['and'].update(kwargs)
-    return output
-
-
-def not_(filter_, **kwargs):
-    return {"not": filter_, '_cache': kwargs.get('_cache', False)}
-
-
-def or_(*filters, **kwargs):
-    if len(filters) == 1 and isinstance(filters[0], list):
-        filters = filters[0]
-    elif len(filters) == 1:
-        filters = [filters]
-
-    return {"or": {'filters': filters, '_cache': kwargs.get('_cache', False)}}
-
-
 def exists(field):
     return {"exists": {"field": field}}
 
@@ -465,8 +452,8 @@ def missing(field):
     return must_not(exists(field))
 
 
-def script(script, **kwargs):
-    output = {"script": {"script": script}}
+def script(script_, **kwargs):
+    output = {"script": {"script": script_}}
     output['script']['script'].update(kwargs)
     return output
 
@@ -475,10 +462,13 @@ def type_(_type):
     return {"type": {"value": _type}}
 
 
-def highlight(fields={}, **kwargs):
+def highlight(fields=None, **kwargs):
+    if not fields:
+        fields = {}
+
     hl = {"fields": fields}
 
-    for k, v in kwargs.iteritems():
+    for k, v in iteritems(kwargs):
         hl[k] = v
 
     return {"highlight": hl}
