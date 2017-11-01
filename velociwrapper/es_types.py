@@ -260,7 +260,7 @@ class DateTime(datetime, ESType):
             a = args[0]
             args = [a.year, a.month, a.day, a.hour, a.minute, a.second, a.microsecond, a.tzinfo]
 
-        return super(DateTime, cls).__new__(*args, **kwargs)
+        return super(DateTime, cls).__new__(cls, *args, **kwargs)
 
     def date(self):
         value = super(DateTime, self).date()
@@ -282,7 +282,7 @@ class Date(date, ESType):
             a = args[0]
             args = [a.year, a.month, a.day]
 
-        return super(Date, cls).__new__(*args, **kwargs)
+        return super(Date, cls).__new__(cls, *args, **kwargs)
 
 
 # TODO eventually this should subclass the ipaddress module in Python 3.3+
