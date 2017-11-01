@@ -22,7 +22,9 @@ class MapperMergeError(MapperError):
 
 # tools for creating or reindexing elasticsearch mapping
 class Mapper(object):
-    def get_es_client(self, connection=None):
+
+    @staticmethod
+    def get_es_client(connection=None):
         if not connection:
             connection = VWConnection.get_connection()
 
