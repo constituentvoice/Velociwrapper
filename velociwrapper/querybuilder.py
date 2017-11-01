@@ -2,6 +2,8 @@ from __future__ import absolute_import, unicode_literals
 import copy
 from . import qdsl
 
+__all__ = ['QueryBody']
+
 
 class QueryBody(object):
     def __init__(self):
