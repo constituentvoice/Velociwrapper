@@ -65,7 +65,7 @@ class Mapper(object):
         """
 
         subclasses = []
-        self.get_subclasses(VWBase, subclasses)
+        self.get_subclasses(velociwrapper.base.VWBase, subclasses)
 
         indexes = {}
 
