@@ -1,13 +1,15 @@
 from __future__ import absolute_import, unicode_literals
 from six import iteritems, string_types
-from . import config
+import velociwrapper.config
 from elasticsearch import client, helpers
 from elasticsearch.exceptions import RequestError
-from .base import VWBase
+import velociwrapper.base
 from .util import all_subclasses
 from .connection import VWConnection
 import inspect
 from .es_types import ESType
+
+__all__ = ['MapperError', 'MapperMergeError', 'Mapper']
 
 
 class MapperError(Exception):
@@ -33,7 +35,7 @@ class Mapper(object):
         if isinstance(index, list):
             indexes = index
         # if the model argument is a VWBase object
-        elif isinstance(index, VWBase):
+        elif isinstance(index, velociwrapper.base.VWBase):
             try:
                 indexes.append(index.__index__)
             except AttributeError:
@@ -44,7 +46,7 @@ class Mapper(object):
             raise TypeError('"index" argument must be a string or a list')
 
         if not indexes:
-            indexes.append(config.default_index)
+            indexes.append(velociwrapper.config.default_index)
 
         return es_client.get_mapping(index=indexes)
 
@@ -82,7 +84,7 @@ class Mapper(object):
             try:
                 idx = sc.__index__
             except AttributeError:
-                idx = config.default_index
+                idx = velociwrapper.config.default_index
 
             if len(index_list) > 0 and idx not in index_list:
                 continue

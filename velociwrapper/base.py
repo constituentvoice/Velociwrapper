@@ -9,13 +9,12 @@ import time
 
 from elasticsearch import NotFoundError, helpers, client
 
-from . import config, querybuilder, qdsl
+from . import config, querybuilder, qdsl, mapper
 from .connection import VWConnection
 from .config import logger
 from .util import unset, all_subclasses
 # implements elastic search types
 from .es_types import ESType, DateTime, Date, Boolean
-from .mapper import Mapper, MapperError, MapperMergeError
 
 
 class ObjectDeletedError(Exception):
@@ -140,16 +139,16 @@ class VWBase(VWCallback):
         except AttributeError:
             idx = config.default_index
 
-        mapper = Mapper()
+        model_map = mapper.Mapper()
 
         try:
-            mapper.update_type_mapping(cls.__type__, idx, connection)
-        except MapperMergeError:
+            model_map.update_type_mapping(cls.__type__, idx, connection)
+        except mapper.MapperMergeError:
             if full_reindex:
                 if not new_index_name:
                     new_index_name = "{}_{}".format(cls.__index__, int(time.time()))
 
-                mapper.reindex(cls.__index__, new_index_name, index_alias, remap_alias=True, connection=connection)
+                model_map.reindex(cls.__index__, new_index_name, index_alias, remap_alias=True, connection=connection)
             else:
                 raise
 
