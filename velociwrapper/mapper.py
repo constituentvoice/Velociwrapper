@@ -120,7 +120,7 @@ class Mapper(object):
 
         return indexes
 
-    def create_indices(self, connection=None, **kwargs):
+    def create_indices(self, suffix=None, connection=None, **kwargs):
         es_client = self.get_es_client(connection)
 
         suffix = kwargs.get('suffix')

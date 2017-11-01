@@ -158,7 +158,11 @@ class ESType(with_metaclass(VWMeta, object)):
         self._analyzed = analyzed_value
 
     def prop_dict(self):
-        es_type = self.__class__.__name__.lower()
+        try:
+            es_type = self.__class__.type_
+        except AttributeError:
+            es_type = self.__class__.__name__.lower()
+
         _output = {"type": es_type}
         _output.update(self.__es_properties__)
 
