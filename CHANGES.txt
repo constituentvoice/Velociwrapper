@@ -297,6 +297,11 @@
           `.limit(num_results)`. This is the preferred way to limit the result-set. (See changes to `all()`
         - results_per_page is no longer supported by calls to `all()`. `start` and `size` still work but should be
           considered deprecated. `limit()` is the preferred way to limit the results
+        - mapper now supports an attribute on models __custom_mapping__ to override defaults
+        - QDSL calls "bool", "filter" and "range" now have an appended "_" so they are now "bool_", "filter_" and
+          "range_" respectively to prevent collisions with built-in python names if imported into the namespace
+        - Added `query()` and `filter()` methods to VWBase that can chain QDSL fragments directly. Note that `bool`
+          commands in QDSL passed to these methods will be nested.
 
 
     REMOVED FEATURES:

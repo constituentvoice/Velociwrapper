@@ -1,3 +1,4 @@
+from __future__ import absolute_import
+from .connection import VWConnection
 from .base import VWBase, ObjectDeletedError, NoResultsFound, VWCollection
-from .relationship import relationship
 from .version import __version__

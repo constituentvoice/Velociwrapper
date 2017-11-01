@@ -1,10 +1,7 @@
 import logging
 import os
-import json
-from elasticsearch import Elasticsearch
-from traceback import format_exc
 
-### Default configuration ###
+# Default configuration
 
 # Don't edit these values directly
 # either set them on import with velociwrapper.config.varname = value

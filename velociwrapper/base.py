@@ -5,6 +5,7 @@ import copy
 from uuid import uuid4
 import json
 from datetime import datetime, date
+import time
 
 from elasticsearch import NotFoundError, helpers, client
 
@@ -14,6 +15,7 @@ from .config import logger
 from .util import unset, all_subclasses
 # implements elastic search types
 from .es_types import ESType, DateTime, Date, Boolean
+from .mapper import Mapper, MapperError, MapperMergeError
 
 
 class ObjectDeletedError(Exception):
@@ -127,6 +129,29 @@ class VWBase(VWCallback):
         self._no_ex = False
         if self._new:
             self.execute_callbacks('after_manual_create_model')
+
+    @classmethod
+    def update_mapping(cls, full_reindex=False, index_alias=None, new_index_name=None, connection=None):
+        if not connection:
+            connection = VWConnection.get_connection()
+
+        try:
+            idx = cls.__index__
+        except AttributeError:
+            idx = config.default_index
+
+        mapper = Mapper()
+
+        try:
+            mapper.update_type_mapping(cls.__type__, idx, connection)
+        except MapperMergeError:
+            if full_reindex:
+                if not new_index_name:
+                    new_index_name = "{}_{}".format(cls.__index__, int(time.time()))
+
+                mapper.reindex(cls.__index__, new_index_name, index_alias, remap_alias=True, connection=connection)
+            else:
+                raise
 
     # customizations for pickling
     def __getstate__(self):
@@ -402,6 +427,14 @@ class VWCollection(VWCallback):
             kwargs_dict[k] = self._check_datetime(v)
 
         return kwargs_dict
+
+    def query(self, params, **kwargs):
+        self._querybody.chain(qdsl.query(params), **kwargs)
+        return self
+
+    def filter(self, params, **kwargs):
+        self._querybody.chain(qdsl.filter_(params), **kwargs)
+        return self
 
     def filter_by(self, parameters=None, condition='and', **kwargs):
 

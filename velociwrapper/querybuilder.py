@@ -1,3 +1,4 @@
+from __future__ import absolute_import, unicode_literals
 import copy
 from . import qdsl
 
@@ -161,7 +162,7 @@ class QueryBody(object):
                 _output_filter = _filter[f_type]
 
             if not _output_query.get('bool'):
-                _output_query = qdsl.bool(qdsl.must(_output_query))
+                _output_query = qdsl.bool_(qdsl.must(_output_query))
 
             _output_query['bool']['filter'] = _output_filter
 

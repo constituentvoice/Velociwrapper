@@ -1,4 +1,5 @@
-from elasticsearch import Elasticsearch, NotFoundError
+from __future__ import absolute_import, unicode_literals
+from elasticsearch import Elasticsearch
 
 
 class VWConnectionError(Exception):
