@@ -302,6 +302,7 @@
           "range_" respectively to prevent collisions with built-in python names if imported into the namespace
         - Added `query()` and `filter()` methods to VWBase that can chain QDSL fragments directly. Note that `bool`
           commands in QDSL passed to these methods will be nested.
+        - collection() is now a class method
 
 
     REMOVED FEATURES:
