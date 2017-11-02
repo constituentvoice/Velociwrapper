@@ -175,7 +175,7 @@ class ESType(with_metaclass(VWMeta, object)):
 
 
 class Array(list, ESType):
-    type_ = 'string'  # default
+    type_ = 'text'  # default
 
 
 class String(str, ESType):
