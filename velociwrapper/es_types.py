@@ -185,7 +185,7 @@ class String(str, ESType):
 
 
 class Text(String):
-    type_ = 'text',
+    type_ = 'text'
     _analyzed = True
     __es_properties__ = {}
 
