@@ -254,11 +254,25 @@ class DateTime(datetime, ESType):
     __es_properties__ = {}
 
     def __new__(cls, *args, **kwargs):
+        args = list(args)
         try:
             args[0]
         except IndexError:
-            args = list(args)
             args[0] = datetime.now()
+
+        # check for a string that could represent a date
+        if isinstance(args[0], string_types):
+            try:
+                args[0] = datetime.strptime(args[0], '%Y-%m-%d %H:%M:%S')
+            except ValueError:
+                try:
+                    args[0] = datetime.strptime(args[0], '%Y-%m-%dT%H:%M:%S')
+                except ValueError:
+                    try:
+                        args[0] = datetime.strptime(args[0], '%Y-%m-%dT%H:%M:%S.%f')
+                    except ValueError:
+                        pass
+                    
 
         if isinstance(args[0], datetime):
             a = args[0]
@@ -267,6 +281,7 @@ class DateTime(datetime, ESType):
         return super(DateTime, cls).__new__(cls, *args, **kwargs)
 
     def date(self):
+
         value = super(DateTime, self).date()
         return Date(value)
 
@@ -276,11 +291,18 @@ class Date(date, ESType):
     __es_properties__ = {}
 
     def __new__(cls, *args, **kwargs):
+        args = list(args)
         try:
             args[0]
         except IndexError:
-            args = list(args)
             args[0] = date.today()
+
+        if isinstance(args[0], string_types):
+            try:
+                test_date = datetime.strptime(args[0], '%Y-%m-%d')
+                args[0] = test_date.date()
+            except ValueError:
+                pass
 
         if isinstance(args[0], date):
             a = args[0]
