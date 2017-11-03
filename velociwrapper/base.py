@@ -656,7 +656,7 @@ class VWCollection(VWCallback):
         if start is None:
             start = 0
 
-        if size is not None:
+        if size is None:
             size = config.results_per_page
 
         if size > 0 or start > 0:
