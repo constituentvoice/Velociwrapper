@@ -150,14 +150,12 @@ class QueryBody(object):
                 _output_query = {'bool': _query}
             else:
                 _output_query = _query[q_type]
-
-            _output_query = {'query': _output_query}
         else:
-            _output_query = {'query': qdsl.match_all()}
+            _output_query = qdsl.match_all()
 
         if is_filtered:
             if filter_needs_bool:
-                _output_filter = {'bool': _filter}
+                _output_filter = qdsl.bool_(_filter)
             elif filter_is_multi_condition or isinstance(_filter[f_type], list):
                 _output_filter = _filter  # explicit queries
             else:
@@ -168,4 +166,4 @@ class QueryBody(object):
 
             _output_query['bool']['filter'] = _output_filter
 
-        return _output_query
+        return qdsl.query(_output_query)

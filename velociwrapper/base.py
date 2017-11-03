@@ -738,11 +738,11 @@ class VWCollection(VWCallback):
         return self
 
     def missing(self, field):
-        self._querybody.chain(qdsl.filter_(qdsl.missing(field)))
+        self._querybody.chain(qdsl.query(qdsl.missing(field)))
         return self
 
     def exists(self, field):
-        self._querybody.chain(qdsl.filter_(qdsl.exists(field)))
+        self._querybody.chain(qdsl.query(qdsl.exists(field)))
         return self
 
     def delete(self, connection=None):

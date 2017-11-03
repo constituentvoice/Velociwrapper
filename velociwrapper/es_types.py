@@ -1,4 +1,5 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
+from builtins import str as newstr
 from six import string_types, iteritems, with_metaclass
 import socket
 from datetime import date, datetime
@@ -6,6 +7,7 @@ import re
 
 __all__ = ['ESType', 'Array', 'String', 'Text', 'Number', 'Keyword', 'Integer', 'Long', 'Float', 'Double', 'Short',
            'Boolean', 'DateTime', 'Date', 'IP', 'Binary', 'GeoPoint', 'TokenCount', 'Percolator', 'Join']
+
 
 # The metaclass is defined to allow additional elasticsearch keywords to be passed
 # to normal objects
@@ -31,12 +33,44 @@ class ESType(with_metaclass(VWMeta, object)):
     __es_properties__ = {}  # should always be overridden
 
     @classmethod
+    def is_es_properties_analyzed(cls, properties):
+        if isinstance(properties, dict) and (
+                        properties.get('analyzed') is False or properties.get('index') == 'not_analyzed'):
+            return False
+
+        return True
+
+    @classmethod
+    def std_es_properties(cls, properties):
+        if isinstance(properties, dict):
+            try:
+                if not isinstance(properties['index'], bool):
+                    del properties['index']
+            except KeyError:
+                pass
+
+            try:
+                del properties['analyzed']
+            except KeyError:
+                pass
+
+        return properties
+
+    @classmethod
     def create(cls, value, es_properties=None):
         # see if we already are an ESType
         if isinstance(value, cls):
             return value
 
         if isinstance(value, string_types):
+            # ensure we are unicode
+            value = newstr(value)
+            try:
+                value = value.encode('utf-8')
+            except (UnicodeDecodeError, UnicodeEncodeError):
+                print("passing unicode error")
+                pass
+
             # strings could be a lot of things
             # try to see if it's a date
 
@@ -65,7 +99,8 @@ class ESType(with_metaclass(VWMeta, object)):
             try:
                 socket.inet_aton(value)
                 return IP(value, es_properties=es_properties)
-            except socket.error:
+            except (socket.error, UnicodeEncodeError):
+                # unicode error because reasons
                 pass
 
             # check for numeric type
@@ -73,11 +108,24 @@ class ESType(with_metaclass(VWMeta, object)):
                 if value.isnumeric():
                     return Float(value, es_properties=es_properties)
                 else:
+                    analyzed = cls.is_es_properties_analyzed(es_properties)
+                    es_properties = cls.std_es_properties(es_properties)
+
+                    if analyzed:
+                        return Text(value, es_properties)
+                    else:
+                        return Keyword(value, es_properties)
+
                     return String(value, es_properties=es_properties)
             except AttributeError:
                 # TODO this could be a byte string
                 # which could cause problems, we may need to try to detect
-                return String(value, es_properties=es_properties)
+                analyzed = cls.is_es_properties_analyzed(es_properties)
+                es_properties = cls.std_es_properties(es_properties)
+                if analyzed:
+                    return Text(value, es_properties=es_properties)
+                else:
+                    return Keyword(value, es_properties=es_properties)
 
         # not a string, start checking for other types
         if isinstance(value, int):
@@ -109,7 +157,9 @@ class ESType(with_metaclass(VWMeta, object)):
     def is_analyzed(cls, value):
 
         if isinstance(value, cls):
-            if isinstance(value, String) or isinstance(value, Array):
+            if isinstance(value, Text):
+                analyzed = True
+            elif isinstance(value, String) or isinstance(value, Array):
                 analyzed = value.analyzed
             else:
                 analyzed = False
@@ -119,7 +169,8 @@ class ESType(with_metaclass(VWMeta, object)):
                 analyzed = next(True for item in value if isinstance(item, string_types))
             except StopIteration:
                 analyzed = False
-
+        elif isinstance(value, string_types):
+            analyzed = True
         else:
             analyzed = False
 
@@ -165,11 +216,6 @@ class ESType(with_metaclass(VWMeta, object)):
 
         _output = {"type": es_type}
         _output.update(self.__es_properties__)
-
-        if self.analyzed:
-            _output['index'] = True
-        elif self.analyzed is False:
-            _output['index'] = False
 
         return _output
 
@@ -272,6 +318,8 @@ class DateTime(datetime, ESType):
                         args[0] = datetime.strptime(args[0], '%Y-%m-%dT%H:%M:%S.%f')
                     except ValueError:
                         pass
+            except TypeError:
+                pass
                     
 
         if isinstance(args[0], datetime):
@@ -301,7 +349,7 @@ class Date(date, ESType):
             try:
                 test_date = datetime.strptime(args[0], '%Y-%m-%d')
                 args[0] = test_date.date()
-            except ValueError:
+            except (ValueError, TypeError):
                 pass
 
         if isinstance(args[0], date):

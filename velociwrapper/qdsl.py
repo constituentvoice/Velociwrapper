@@ -3,9 +3,9 @@ from six import iteritems
 
 __all__ = ['query', 'filter_', 'match', 'match_phrase', 'match_phrase_prefix', 'multi_match', 'bool_', 'term', 'terms',
            'must', 'must_not', 'should', 'boosting', 'positive', 'negative', 'common', 'constant_score',
-           'function_score', 'fuzzy', 'ids', 'query_term', 'indices', 'match_all', 'more_like_this', 'nested', 'prefix'
+           'function_score', 'fuzzy', 'ids', 'query_term', 'indices', 'match_all', 'more_like_this', 'nested', 'prefix',
            'query_string', 'simple_query_string', 'range_', 'regexp', 'span_term', 'span_first', 'span_multi',
-           'span_near', 'span_not', 'span_or', 'wildcard', 'exists', 'geo_bounding_box', 'geo_distance', 'geo_range'
+           'span_near', 'span_not', 'span_or', 'wildcard', 'exists', 'geo_bounding_box', 'geo_distance', 'geo_range',
            'geo_polygon', 'geo_shape', 'geohash_cell', 'has_child', 'has_parent', 'missing', 'script', 'type_',
            'highlight']
 
