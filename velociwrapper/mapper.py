@@ -123,7 +123,6 @@ class Mapper(object):
     def create_indices(self, suffix=None, connection=None, **kwargs):
         es_client = self.get_es_client(connection)
 
-        suffix = kwargs.get('suffix')
         indexes = self.get_index_map(**kwargs)
 
         for k, v in iteritems(indexes):
@@ -158,11 +157,6 @@ class Mapper(object):
         index = idx
         alias = None
         alias_exists = False
-
-        if es_client.exists_alias(idx):
-            alias = idx
-            index = self.get_index_for_alias(idx)
-            alias_exists = True
 
         if alias_name:
             if es_client.exists_alias(alias_name):
