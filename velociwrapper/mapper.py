@@ -157,9 +157,14 @@ class Mapper(object):
         index = idx
         alias = None
         alias_exists = False
+        if es_client.exists_alias(name=alias_name):
+            alias = idx
+            idx = self.get_index_for_alias(idx, connection)
+            if remap_alias:
+                alias_exists = True
 
         if alias_name:
-            if es_client.exists_alias(alias_name):
+            if es_client.exists_alias(name=alias_name):
                 if remap_alias:
                     alias_exists = True
                 else:
