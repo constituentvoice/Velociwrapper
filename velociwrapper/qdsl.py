@@ -9,6 +9,7 @@ __all__ = ['query', 'filter_', 'match', 'match_phrase', 'match_phrase_prefix', '
            'geo_polygon', 'geo_shape', 'geohash_cell', 'has_child', 'has_parent', 'missing', 'script', 'type_',
            'highlight']
 
+
 def query(params):
     return {"query": params}
 
