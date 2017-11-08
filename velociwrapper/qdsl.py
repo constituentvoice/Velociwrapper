@@ -39,8 +39,8 @@ def match_phrase_prefix(field, value, **kwargs):
     return match(field, value, **kwargs)
 
 
-def multi_match(query, fields, **kwargs):
-    output = {"multi_match": {"query": query, "fields": fields}}
+def multi_match(_query, fields, **kwargs):
+    output = {"multi_match": {"query": _query, "fields": fields}}
     output["multi_match"].update(kwargs)
     return output
 
@@ -263,7 +263,7 @@ def indices(*args, **kwargs):
     return output
 
 
-def match_all(*args, **kwargs):
+def match_all(**kwargs):
     output = {"match_all": {}}
     output['match_all'].update(kwargs)
     return output
@@ -382,12 +382,12 @@ def span_first(arg=None, **kwargs):
     return output
 
 
-def span_multi(match):
-    if isinstance(match, dict):
-        if 'match' in match:
-            match = match['match']
+def span_multi(_match):
+    if isinstance(_match, dict):
+        if 'match' in _match:
+            _match = _match['match']
 
-        output = {"span_multi": {'match': match}}
+        output = {"span_multi": {'match': _match}}
         return output
     else:
         raise TypeError('Argument to span_multi() must be dict')
@@ -417,7 +417,7 @@ def span_or(*clauses, **kwargs):
 
 
 def span_not(include=None, exclude=None):
-    output = {"span_not": {} }
+    output = {"span_not": {}}
     if include:
         if not isinstance(include, dict):
             raise TypeError('include parameter must be a dict')
@@ -489,7 +489,6 @@ def geo_bounding_box(field, **kwargs):
 
 
 def geo_distance(field, point=None, distance=None, **kwargs):
-    output = {}
     if isinstance(field, dict):
         output = field
     else:
@@ -503,7 +502,6 @@ def geo_distance(field, point=None, distance=None, **kwargs):
 
 
 def geo_range(field, point=None, from_dist=None, to_dist=None, **kwargs):
-    output = {}
     if isinstance(field, dict):
         output = field
     else:
@@ -584,7 +582,7 @@ def script(source, lang=None, **kwargs):
         if not source or not lang:
             raise TypeError('source and lang are required unless first parameter is dict')
 
-        output = {'source': source, 'lang': lang }
+        output = {'source': source, 'lang': lang}
 
     # do this twice because for some weird reason the QDSL syntax
     # is 'script': { 'script': {...}}
