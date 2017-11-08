@@ -1,5 +1,5 @@
 from __future__ import absolute_import
-from six import iteritems
+from six import iteritems, string_types
 
 __all__ = ['query', 'filter_', 'match', 'match_phrase', 'match_phrase_prefix', 'multi_match', 'bool_', 'term', 'terms',
            'must', 'must_not', 'should', 'boosting', 'positive', 'negative', 'common', 'constant_score',
@@ -18,8 +18,12 @@ def filter_(params):
     return {"filter": params}
 
 
-def match(field, value, **kwargs):
-    output = {"match": {field: {"query": value}}}
+def match(field, value=None, **kwargs):
+    if isinstance(field, dict):
+        output = {'match': field}
+    else:
+        output = {"match": {field: {"query": value}}}
+
     output['match'].update(kwargs)
 
     return output
@@ -92,24 +96,41 @@ def terms(field, value, **kwargs):
     return output
 
 
-def _term_param(_term_type, params, value=None, **kwargs):
-    if isinstance(params, str) or isinstance(params, unicode) or value:
+def _term_param(_term_type, *params, **kwargs):
+    value = kwargs.get('value')
+    term_ = None
+
+    # assume field / value
+    if value is None and len(params) == 2:
+        term_ = params[0]
+        value = params[1]
+    elif value and len(params) == 1 and isinstance(params[0], string_types):
+        term_ = params[0]
+
+    # if the term and value are strings
+    if isinstance(value, string_types) and isinstance(term_, string_types):
+        # this should probably be deprecated. Normally we want match()
         # assume field / value
-        return {_term_type: term(params, value)}
+        return {_term_type: term(term_, value)}
+    elif len(params) == 1:
+        # single parameter with no value should be a list or dict
+        return {_term_type: params[0]}
     else:
-        return {_term_type: params}
+        # this is normally being called to wrap other QDSL calls in list form
+        return {_term_type: list(params)}
 
 
-def must(params, value=None, **kwargs):
-    return _term_param("must", params, value, **kwargs)
+def must(*args, **kwargs):
+
+    return _term_param("must", *args, **kwargs)
 
 
-def must_not(params, value=None, **kwargs):
-    return _term_param("must_not", params, value, **kwargs)
+def must_not(*args, **kwargs):
+    return _term_param("must_not", *args, **kwargs)
 
 
-def should(params, value=None, **kwargs):
-    return _term_param("should", params, value, **kwargs)
+def should(*args, **kwargs):
+    return _term_param("should", *args, **kwargs)
 
 
 def boosting(*args, **kwargs):
@@ -301,20 +322,25 @@ def range_(field, **kwargs):
     return output
 
 
-def regexp(field, value=None, **kwargs):
+def regexp(field, regex=None, **kwargs):
     output = {'regexp': {}}
     if isinstance(field, dict):
         output['regexp'] = field
     else:
-        output = {'regexp': {field: {'value': value}}}
+        output = {'regexp': {field: {'value': regex}}}
         output['regexp'][field].update(kwargs)
 
     return output
 
 
-def span_term(field, value, **kwargs):
-    output = {"span_term": {field: {'value': value}}}
-    output['span_term'][field].update(kwargs)
+def span_term(field, value=None, **kwargs):
+    if isinstance(field, dict):
+        field.update(kwargs)
+        output = {'span_term': field}
+    else:
+        output = {"span_term": {field: {'value': value}}}
+        output['span_term'][field].update(kwargs)
+
     return output
 
 
@@ -349,42 +375,93 @@ def span_first(arg=None, **kwargs):
     return output
 
 
-def span_multi(query=None, **kwargs):
-    output = {"span_multi": {'match': {}}}
+def span_multi(match):
+    if isinstance(match, dict):
+        if 'match' in match:
+            match = match['match']
 
-    if query:
-        output['span_multi']['match'] = query
+        output = {"span_multi": {'match': match}}
+        return output
+    else:
+        raise TypeError('Argument to span_multi() must be dict')
 
-    if 'match' in kwargs:
-        output['span_multi']['match'] = kwargs.get('match')
 
-    return output
+def _build_clause_span(span_type, *clauses, **kwargs):
+    if len(clauses) == 1 and isinstance(clauses[0], list):
+        clauses = clauses[0]
+    else:
+        clauses = list(clauses)
+
+    if all(isinstance(x, dict) for x in clauses):
+        output = {span_type: {'clauses': clauses}}
+        output[span_type].update(kwargs)
+
+        return output
+    else:
+        raise TypeError('Arguments to {}() must be dict or list of dicts'.format(span_type))
 
 
 def span_near(*clauses, **kwargs):
-    if len(clauses) == 1 and isinstance(clauses[0], list):
-        clauses = clauses[0]
-
-    output = {"span_near": {'clauses': clauses}}
-
-    output['span_near'].update(kwargs)
-
-    return output
-
-
-def span_not(**kwargs):
-    return {"span_not": {"include": kwargs.get('include'), "exclude": kwargs.get('exclude')}}
+    return _build_clause_span(*clauses, **kwargs)
 
 
 def span_or(*clauses, **kwargs):
-    if len(clauses) == 1 and isinstance(clauses[0], list):
-        clauses = clauses[0]
+    return _build_clause_span(*clauses, **kwargs)
 
-    output = {"span_or": {'clauses': clauses}}
 
-    output['span_or'].update(kwargs)
+def span_not(include=None, exclude=None):
+    output = {"span_not": {} }
+    if include:
+        if not isinstance(include, dict):
+            raise TypeError('include parameter must be a dict')
 
+        output["span_not"]["include"] = include
+
+    if exclude:
+        if not isinstance(exclude, dict):
+            raise TypeError('exclude parameter must be a dict')
+
+        output["span_not"]["exclude"] = exclude
     return output
+
+
+def _build_span_big_little(span_type, little=None, big=None):
+    output = {}
+    if little:
+        if not isinstance(little, dict):
+            raise TypeError('little parameter must be a dict')
+        output['little'] = little
+
+    if big:
+        if not isinstance(big, dict):
+            raise TypeError('big parameter must be a dict')
+
+        output['big'] = big
+
+    return {span_type: output}
+
+
+def span_containing(little=None, big=None):
+    return _build_span_big_little(little=little, big=big)
+
+
+def span_within(little=None, big=None):
+    return _build_span_big_little(little=little, big=big)
+
+
+def field_masking_span(span_query, field=None):
+    if not isinstance(span_query, dict):
+        raise TypeError('query argument must be a dict')
+
+    output = {}
+    if 'query' in span_query:
+        output = span_query
+    else:
+        output['query'] = span_query
+        if field:
+            output['field'] = field
+
+    return {'field_masking_span': output}
 
 
 def wildcard(field, value, **kwargs):
@@ -398,37 +475,68 @@ def exists(field):
 
 
 def geo_bounding_box(field, **kwargs):
-    return {"geo_bounding_box": {field: kwargs}}
+    if isinstance(field, dict):
+        return {"geo_bounding_box": field}
+    else:
+        return {"geo_bounding_box": {field: kwargs}}
 
 
-def geo_distance(field, point, distance, **kwargs):
-    output = {"geo_distance": {"distance": distance, field: point}}
-    output['geo_distance'].update(kwargs)
-    return output
+def geo_distance(field, point=None, distance=None, **kwargs):
+    output = {}
+    if isinstance(field, dict):
+        output = field
+    else:
+        if not point or not distance:
+            raise TypeError('point and distance parameters are required unless field (param 1) is dict')
+
+        output = {"distance": distance, field: point}
+    output.update(kwargs)
+
+    return {"geo_distance": output}
 
 
-def geo_range(field, point, from_dist, to_dist, **kwargs):
-    output = {"geo_distance_range": {field: point, "from": from_dist, "to": to_dist}}
-    output['geo_distance_range'].update(kwargs)
-    return output
+def geo_range(field, point=None, from_dist=None, to_dist=None, **kwargs):
+    output = {}
+    if isinstance(field, dict):
+        output = field
+    else:
+        if not point or not from_dist or not to_dist:
+            raise TypeError('point, from_dist, and to_dist must be set if field is not dict')
 
+        output = {field: point, "from": from_dist, "to": to_dist}
+        output.update(kwargs)
+
+    return {'geo_range': output}
+
+geo_distance_range = geo_range  # alias
 
 def geo_polygon(field, points, **kwargs):
-    output = {"geo_polygon": {field: points}}
-    output['geo_polygon'].update(kwargs)
-    return output
+    if isinstance(field, dict):
+        output = field
+    else:
+        if not isinstance(points, list):
+            raise TypeError('points must be list')
+        output = {field: points}
+
+        output.update(kwargs)
+    return {"geo_polygon": output}
 
 
-def geo_shape(field, **kwargs):
-    output = {"geo_shape": {field: {}}}
+def geo_shape(field, shape=None, indexed_shape=None, **kwargs):
+    if isinstance(field, dict):
+        output = field
+    else:
+        output = {field: {}}
+        if shape:
+            output[field]['shape'] = shape
+        elif indexed_shape:
+            output[field]['indexed_shape'] = indexed_shape
+        else:
+            raise TypeError('geo_shape requires a shape or indexed_shape')
 
-    if kwargs.get('shape'):
-        output['geo_shape'][field]['shape'] = kwargs.get('shape')
+        output[field].update(kwargs)
 
-    elif kwargs.get('indexed_shape'):
-        output['geo_shape'][field]['indexed_shape'] = kwargs.get('indexed_shape')
-
-    return output
+    return {'geo_shape': output}
 
 
 def geohash_cell(field, lat, lon, **kwargs):
@@ -437,24 +545,43 @@ def geohash_cell(field, lat, lon, **kwargs):
     return output
 
 
-def has_child(_type, **kwargs):
-    output = {'has_child': {'type': _type}}
-    output['has_child'].update(kwargs)
-    return output
+def _parent_child_query(query_type, _type, query, **kwargs):
+    if isinstance(_type, dict):
+        output = _type
+    else:
+        if not query:
+            raise TypeError('query is required unless first parameter is dict')
+        output = {'type': _type, 'query': query}
+        output.update(kwargs)
+    return {query_type: output}
+
+def has_child(_type, query=None, **kwargs):
+    return _parent_child_query('has_child', _type, query, **kwargs)
 
 
 def has_parent(_type, **kwargs):
-    output = {'has_parent': {'type': _type}}
-    output['has_parent'].update(kwargs)
-    return output
+    return _parent_child_query('has_parent', _type, query, **kwargs)
 
 
 def missing(field):
     return must_not(exists(field))
 
 
-def script(script_, **kwargs):
-    output = {"script": {"script": script_}}
+def script(source, lang=None, **kwargs):
+    if isinstance(source, dict):
+        output = source
+    else:
+        if not source or not lang:
+            raise TypeError('source and lang are required unless first parameter is dict')
+
+        output = {'source': source, 'lang': lang }
+
+    # do this twice because for some weird reason the QDSL syntax
+    # is 'script': { 'script': {...}}
+    for x in range(2):
+        if 'script' not in output:
+            output = {'script': output}
+
     output['script']['script'].update(kwargs)
     return output
 
@@ -466,10 +593,6 @@ def type_(_type):
 def highlight(fields=None, **kwargs):
     if not fields:
         fields = {}
+    fields.update(kwargs)
 
-    hl = {"fields": fields}
-
-    for k, v in iteritems(kwargs):
-        hl[k] = v
-
-    return {"highlight": hl}
+    return {"highlight": {'fields': fields}}
