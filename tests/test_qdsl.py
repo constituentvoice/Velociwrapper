@@ -55,7 +55,7 @@ class TestQDSL(unittest.TestCase):
         self.assertEqual(fragment, {'term': {'foo': {'value': 'bar'}}})
 
     def test_terms(self):
-        fragment = qdsl.terms('foo', ['bar','baz','bang'])
+        fragment = qdsl.terms('foo', ['bar', 'baz', 'bang'])
         self.assertEqual(fragment, {'terms': {'foo': ['bar', 'baz', 'bang']}})
 
     def test_must(self):
@@ -89,7 +89,7 @@ class TestQDSL(unittest.TestCase):
         self.assertEqual(fragment, {'boosting': {'negative': {'term': {'foo': {'value': 'bar'}}}}})
 
         # multiple dict and key words
-        boost_dict2 = qdsl.positive('baz','bang')
+        boost_dict2 = qdsl.positive('baz', 'bang')
         fragment2 = qdsl.boosting(boost_dict, boost_dict2, negative_boost=0.2)
 
         self.assertEqual(fragment2, {
@@ -109,8 +109,7 @@ class TestQDSL(unittest.TestCase):
         self.assertEqual(
             qdsl.common('foo',
                         'this is a phrase with some common and uncommon words',
-                        cutoff_frequency=000.1),
-                        {
+                        cutoff_frequency=000.1), {
                             'common': {
                                 'foo': {
                                     'query': 'this is a phrase with some common and uncommon words',
@@ -151,7 +150,7 @@ class TestQDSL(unittest.TestCase):
 
     def test_fuzzy(self):
         self.assertEqual(qdsl.fuzzy('foo', 'bar'), {
-            'fuzzy': {'foo':'bar'}
+            'fuzzy': {'foo': 'bar'}
         })
 
     def test_ids(self):
@@ -236,7 +235,7 @@ class TestQDSL(unittest.TestCase):
         self.assertEqual(qdsl.nested(
             path='animals',
             score_mode='avg',
-            query=qdsl.bool_(qdsl.must( qdsl.match('animal','cat'), qdsl.range_('pet_count',gt=5)))
+            query=qdsl.bool_(qdsl.must(qdsl.match('animal', 'cat'), qdsl.range_('pet_count', gt=5)))
         ), {'nested': params})
 
     def test_prefix(self):
@@ -269,12 +268,11 @@ class TestQDSL(unittest.TestCase):
         # keywords
         self.assertEqual(
             qdsl.range_('some_field', gt=5),
-            {'range': {'some_field': { 'gt': 5}}}
+            {'range': {'some_field': {'gt': 5}}}
         )
 
         # dict
-        self.assertEqual( qdsl.range_({'some_field': {'gt': 5}}),
-                          {'range': {'some_field': {'gt': 5}}})
+        self.assertEqual(qdsl.range_({'some_field': {'gt': 5}}), {'range': {'some_field': {'gt': 5}}})
 
     def test_regexp(self):
         param = {
@@ -285,7 +283,7 @@ class TestQDSL(unittest.TestCase):
         }
 
         # dict
-        self.assertEqual( qdsl.regexp(param), {'regexp': param})
+        self.assertEqual(qdsl.regexp(param), {'regexp': param})
 
         # field + regex + keywords
         self.assertEqual(
@@ -294,10 +292,10 @@ class TestQDSL(unittest.TestCase):
         )
 
     def test_span_term(self):
-        params = {'animal': { 'value': 'cat', 'boost': 2.0} }
+        params = {'animal': {'value': 'cat', 'boost': 2.0}}
 
         # dict
-        self.assertEqual( qdsl.span_term(params), {'span_term': params})
+        self.assertEqual(qdsl.span_term(params), {'span_term': params})
 
         # field, value and keywords
         self.assertEqual(qdsl.span_term('animal', 'cat', boost=2.0), {'span_term': params})
@@ -351,7 +349,7 @@ class TestQDSL(unittest.TestCase):
             qdsl.span_near('gobbly-goop')
 
         params = [qdsl.span_term('animal', 'cat'), qdsl.span_term('breed', 'tortoise shell')]
-        output = {'span_near': {'clauses': params, 'slop': 12, 'in_order': False }}
+        output = {'span_near': {'clauses': params, 'slop': 12, 'in_order': False}}
 
         # pass list of dicts
         self.assertEqual(qdsl.span_near(params, slop=12, in_order=False), output)
@@ -372,7 +370,7 @@ class TestQDSL(unittest.TestCase):
             exclude=qdsl.span_near(params, slop=2, in_order=True)
             ),
             {
-                'span_not':{
+                'span_not': {
                     'include': {
                         'span_term': {'animal': {'value': 'cat'}}
                     },
@@ -410,7 +408,7 @@ class TestQDSL(unittest.TestCase):
             big=qdsl.span_near(params, slop=2, in_order=True)
             ),
             {
-                'span_containing':{
+                'span_containing': {
                     'little': {
                         'span_term': {'animal': {'value': 'cat'}}
                     },
@@ -435,7 +433,7 @@ class TestQDSL(unittest.TestCase):
             big=qdsl.span_near(params, slop=2, in_order=True)
             ),
             {
-                'span_within':{
+                'span_within': {
                     'little': {
                         'span_term': {'animal': {'value': 'cat'}}
                     },
@@ -482,7 +480,7 @@ class TestQDSL(unittest.TestCase):
 
     def test_geo_bounding_box(self):
         params = {
-            'pin.location':{
+            'pin.location': {
                 'top_left': {
                     'lat': 40.73,
                     'lon': -74.1
@@ -502,7 +500,7 @@ class TestQDSL(unittest.TestCase):
         self.assertEqual(qdsl.geo_bounding_box(
             'pin.location',
             top_left={'lat': 40.73, 'lon': -74.1},
-            bottom_right={'lat': 40.01, 'lon':-74.12}
+            bottom_right={'lat': 40.01, 'lon': -74.12}
             ),
             expected
         )
@@ -633,7 +631,7 @@ class TestQDSL(unittest.TestCase):
         )
 
     def test_geohash_cell(self):
-        self.assertEqual( qdsl.geohash_cell('location', 40, -70), {
+        self.assertEqual(qdsl.geohash_cell('location', 40, -70), {
             'geohash_cell': {'location': {'lat': 40, 'lon': -70}}})
 
     def test_has_child(self):
@@ -653,7 +651,7 @@ class TestQDSL(unittest.TestCase):
         with self.assertRaises(TypeError):
             qdsl.has_parent('gobbly-goop')
 
-        params = {'type': 'animals', 'query': qdsl.term('species','cat')}
+        params = {'type': 'animals', 'query': qdsl.term('species', 'cat')}
         expected = {'has_parent': params}
 
         # type and query
@@ -669,14 +667,14 @@ class TestQDSL(unittest.TestCase):
         with self.assertRaises(TypeError):
             qdsl.script('gobbly-goop')
 
-        params = {'source': "doc['num1'].value > 1", 'lang': 'painless' }
+        params = {'source': "doc['num1'].value > 1", 'lang': 'painless'}
         expected = {'script': {'script': params}}
 
         # dict
         self.assertEqual(qdsl.script(params), expected)
 
         # source / lang
-        self.assertEqual( qdsl.script(params['source'], params['lang']), expected)
+        self.assertEqual(qdsl.script(params['source'], params['lang']), expected)
 
     def test_type_(self):
         self.assertEqual(qdsl.type_('animals'), {'type': {'value': 'animals'}})
@@ -685,7 +683,6 @@ class TestQDSL(unittest.TestCase):
         self.assertEqual(qdsl.highlight(title={}, description={}), {
             'highlight': {'fields': {
                 'title': {},
-                'description':{}
+                'description': {}
             }}
         })
-
