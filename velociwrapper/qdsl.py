@@ -223,7 +223,9 @@ def ids(*values, **kwargs):
     if isinstance(values[0], list):
         values = values[0]
     elif len(values) == 1 and not isinstance(values, list):
-        values = [values]
+        values = [values[0]]  # to get rid of set
+    else:
+        values = list(values)
 
     output = {'ids': {'values': values}}
     if kwargs.get('type'):
@@ -300,15 +302,20 @@ def prefix(field, value=None, **kwargs):
     return output
 
 
-def query_string(string, **kwargs):
-    output = {"query_string": {"query": string}}
-    output['query_string'].update(kwargs)
+def _query_string_output(_type, string, **kwargs):
+
+    output = {_type: {"query": string}}
+    output[_type].update(kwargs)
 
     return output
 
 
+def query_string(string, **kwargs):
+    return _query_string_output('query_string', string, **kwargs)
+
+
 def simple_query_string(string, **kwargs):
-    return query_string(string, **kwargs)
+    return _query_string_output('simple_query_string', string, **kwargs)
 
 
 def range_(field, **kwargs):
@@ -368,7 +375,7 @@ def span_first(arg=None, **kwargs):
 
     if not found_arg:
         output['span_first']['match'] = {}
-        for k, v in kwargs:
+        for k, v in iteritems(kwargs):
             output['span_first']['match'] = span_term(k, v)
             break
 
@@ -402,11 +409,11 @@ def _build_clause_span(span_type, *clauses, **kwargs):
 
 
 def span_near(*clauses, **kwargs):
-    return _build_clause_span(*clauses, **kwargs)
+    return _build_clause_span('span_near', *clauses, **kwargs)
 
 
 def span_or(*clauses, **kwargs):
-    return _build_clause_span(*clauses, **kwargs)
+    return _build_clause_span('span_or', *clauses, **kwargs)
 
 
 def span_not(include=None, exclude=None):
@@ -442,11 +449,11 @@ def _build_span_big_little(span_type, little=None, big=None):
 
 
 def span_containing(little=None, big=None):
-    return _build_span_big_little(little=little, big=big)
+    return _build_span_big_little('span_containing', little=little, big=big)
 
 
 def span_within(little=None, big=None):
-    return _build_span_big_little(little=little, big=big)
+    return _build_span_big_little('span_within', little=little, big=big)
 
 
 def field_masking_span(span_query, field=None):
@@ -506,17 +513,19 @@ def geo_range(field, point=None, from_dist=None, to_dist=None, **kwargs):
         output = {field: point, "from": from_dist, "to": to_dist}
         output.update(kwargs)
 
-    return {'geo_range': output}
+    return {'geo_distance_range': output}
+
 
 geo_distance_range = geo_range  # alias
 
-def geo_polygon(field, points, **kwargs):
+
+def geo_polygon(field, points=None, **kwargs):
     if isinstance(field, dict):
         output = field
     else:
         if not isinstance(points, list):
             raise TypeError('points must be list')
-        output = {field: points}
+        output = {field: {'points': points}}
 
         output.update(kwargs)
     return {"geo_polygon": output}
@@ -545,21 +554,22 @@ def geohash_cell(field, lat, lon, **kwargs):
     return output
 
 
-def _parent_child_query(query_type, _type, query, **kwargs):
+def _parent_child_query(query_type, _type, _query, **kwargs):
     if isinstance(_type, dict):
         output = _type
     else:
-        if not query:
+        if _query is None:
             raise TypeError('query is required unless first parameter is dict')
-        output = {'type': _type, 'query': query}
+        output = {'type': _type, 'query': _query}
         output.update(kwargs)
     return {query_type: output}
+
 
 def has_child(_type, query=None, **kwargs):
     return _parent_child_query('has_child', _type, query, **kwargs)
 
 
-def has_parent(_type, **kwargs):
+def has_parent(_type, query=None, **kwargs):
     return _parent_child_query('has_parent', _type, query, **kwargs)
 
 
@@ -579,7 +589,7 @@ def script(source, lang=None, **kwargs):
     # do this twice because for some weird reason the QDSL syntax
     # is 'script': { 'script': {...}}
     for x in range(2):
-        if 'script' not in output:
+        if 'script' not in output or 'script' not in output['script']:
             output = {'script': output}
 
     output['script']['script'].update(kwargs)

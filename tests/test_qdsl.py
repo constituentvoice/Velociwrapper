@@ -20,7 +20,7 @@ class TestQDSL(unittest.TestCase):
         self.assertEqual(fragment, output)
 
         # dict input
-        self.assertEqual({'foo': {'query': 'bar'}}, output)
+        self.assertEqual(qdsl.match({'foo': {'query': 'bar'}}), output)
 
     def test_match_phrase(self):
         fragment = qdsl.match_phrase('foo', 'bar')
@@ -181,22 +181,22 @@ class TestQDSL(unittest.TestCase):
             {'query': {'term': {'foo': {'value': 'bar'}}}}
         )
 
-    def test_indicies(self):
+    def test_indices(self):
         #  test as dict
         params = {
-            'indicies': ['vwindex1', 'vwindex2'],
+            'indices': ['vwindex1', 'vwindex2'],
             'query': {"term": {"animal": "cat"}},
             'no_match_query': {"term": {"animal": "dog"}}
         }
-        self.assertEqual(qdsl.indicies(params), {'indicies': params})
+        self.assertEqual(qdsl.indices(params), {'indices': params})
 
         #  test as list
-        fragment = qdsl.indicies(
+        fragment = qdsl.indices(
             ['vwindex1', 'vwindex2'],
             {'query': {'term': {'animal': 'cat'}}},
             {'no_match_query': {'term': {'animal': 'dog'}}}
         )
-        self.assertEqual(fragment, {'indicies': params})
+        self.assertEqual(fragment, {'indices': params})
 
     def test_match_all(self):
         self.assertEqual(qdsl.match_all(), {'match_all': {}})
@@ -241,10 +241,10 @@ class TestQDSL(unittest.TestCase):
 
     def test_prefix(self):
         # parameters
-        self.assertEqual(qdsl.prefix('breed', 'tort'), {'prefix': {'breed', 'tort'}})
+        self.assertEqual(qdsl.prefix('breed', 'tort'), {'prefix': {'breed': {'value': 'tort'}}})
 
         # dict
-        self.assertEqual(qdsl.prefix({'breed': 'tort'}), {'prefix': {'breed', 'tort'}})
+        self.assertEqual(qdsl.prefix({'breed': {'value': 'tort'}}), {'prefix': {'breed': {'value': 'tort'}}})
 
     def test_query_string(self):
         self.assertEqual(
@@ -310,6 +310,7 @@ class TestQDSL(unittest.TestCase):
 
         output = {
             'span_first': {
+                'end': 3,
                 'match': {
                     'span_term': {
                         'animal': {'value': 'cat'}
@@ -376,7 +377,7 @@ class TestQDSL(unittest.TestCase):
                         'span_term': {'animal': {'value': 'cat'}}
                     },
                     'exclude': {
-                        'span_near': {'clauses': params, 'slop': 2, 'in_order': 2 }
+                        'span_near': {'clauses': params, 'slop': 2, 'in_order': True}
                     }
                 }
             }
@@ -414,7 +415,7 @@ class TestQDSL(unittest.TestCase):
                         'span_term': {'animal': {'value': 'cat'}}
                     },
                     'big': {
-                        'span_near': {'clauses': params, 'slop': 2, 'in_order': 2 }
+                        'span_near': {'clauses': params, 'slop': 2, 'in_order': True}
                     }
                 }
             }
@@ -434,12 +435,12 @@ class TestQDSL(unittest.TestCase):
             big=qdsl.span_near(params, slop=2, in_order=True)
             ),
             {
-                'span_containing':{
+                'span_within':{
                     'little': {
                         'span_term': {'animal': {'value': 'cat'}}
                     },
                     'big': {
-                        'span_near': {'clauses': params, 'slop': 2, 'in_order': 2 }
+                        'span_near': {'clauses': params, 'slop': 2, 'in_order': True}
                     }
                 }
             }
@@ -509,7 +510,6 @@ class TestQDSL(unittest.TestCase):
     def test_geo_distance(self):
         with self.assertRaises(TypeError):
             qdsl.geo_distance('gobbly-goop')
-
 
         expected = {
             "geo_distance": {
@@ -625,7 +625,7 @@ class TestQDSL(unittest.TestCase):
             'id': 'shape1',
             'path': 'location'
         }
-        expected2 = {'geo_shape': {'location': indexed_shape_params}}
+        expected2 = {'geo_shape': {'location': {'indexed_shape': indexed_shape_params}}}
 
         self.assertEqual(
             qdsl.geo_shape('location', indexed_shape=indexed_shape_params),
@@ -633,19 +633,18 @@ class TestQDSL(unittest.TestCase):
         )
 
     def test_geohash_cell(self):
-        self.assertEqual( qdsl.geohash_cell('location','40', '-70'), {
-            'location': {'lat': 40, 'lon': -70}
-        })
+        self.assertEqual( qdsl.geohash_cell('location', 40, -70), {
+            'geohash_cell': {'location': {'lat': 40, 'lon': -70}}})
 
     def test_has_child(self):
         with self.assertRaises(TypeError):
             qdsl.has_child('gobbly-goop')
 
-        params = {'type': 'animals', 'query': qdsl.term('species','cat')}
+        params = {'type': 'animals', 'query': qdsl.term('species', 'cat')}
         expected = {'has_child': params}
 
         # type and query
-        self.assertEqual(qdsl.has_child('animal', query=qdsl.term('species', 'cat')), expected)
+        self.assertEqual(qdsl.has_child('animals', query=qdsl.term('species', 'cat')), expected)
 
         # dict
         self.assertEqual(qdsl.has_child(params), expected)
@@ -658,7 +657,7 @@ class TestQDSL(unittest.TestCase):
         expected = {'has_parent': params}
 
         # type and query
-        self.assertEqual(qdsl.has_parent('animal', query=qdsl.term('species', 'cat')), expected)
+        self.assertEqual(qdsl.has_parent('animals', query=qdsl.term('species', 'cat')), expected)
 
         # dict
         self.assertEqual(qdsl.has_parent(params), expected)
