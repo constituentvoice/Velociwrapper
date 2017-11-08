@@ -1,10 +1,11 @@
 from __future__ import absolute_import, unicode_literals
 from six import iteritems, string_types
+import re
 import velociwrapper.config
 from elasticsearch import client, helpers
 from elasticsearch.exceptions import RequestError
 import velociwrapper.base
-from .util import all_subclasses
+from .util import all_subclasses, VWDialect
 from .connection import VWConnection
 import inspect
 from .es_types import ESType
@@ -28,7 +29,10 @@ class Mapper(object):
         if not connection:
             connection = VWConnection.get_connection()
 
-        return client.IndicesClient(connection)
+        if connection:
+            return client.IndicesClient(connection)
+        else:
+            raise MapperError
 
     # Retrieves the mapping as defined by the server
     def get_server_mapping(self, index=None, connection=None):
@@ -53,7 +57,7 @@ class Mapper(object):
         return es_client.get_mapping(index=indexes)
 
     # Retrieves what the map should be according to the defined models
-    def get_index_map(self, index=None):
+    def get_index_map(self, index=None, dialect=None):
         # recursively find all the subclasses of base
 
         # options
@@ -65,6 +69,8 @@ class Mapper(object):
             map the indexes defined by entries in list
 
         """
+        if not dialect:
+            dialect = get_dialect()
 
         subclasses = []
         self.get_subclasses(velociwrapper.base.VWBase, subclasses)
@@ -105,7 +111,7 @@ class Mapper(object):
             for k, v in inspect.getmembers(sc):
                 try:
                     if isinstance(v, ESType):
-                        sc_body[sc.__type__]['properties'][k] = v.prop_dict()
+                        sc_body[sc.__type__]['properties'][k] = v.prop_dict(dialect=dialect)
                 except AttributeError:
                     pass
 

@@ -1,6 +1,7 @@
 from __future__ import absolute_import, unicode_literals
 import copy
 from . import qdsl
+from .util import VWDialect
 
 __all__ = ['QueryBody']
 
@@ -83,7 +84,10 @@ class QueryBody(object):
             if len(self._query[t]) > 0:
                 return True
 
-    def build(self):
+    def build(self, dialect=None):
+        if not dialect:
+            dialect = VWDialect.dialect()
+            
         is_filtered = False
         is_query = False
         filter_is_multi_condition = False
@@ -161,9 +165,12 @@ class QueryBody(object):
             else:
                 _output_filter = _filter[f_type]
 
-            if not _output_query.get('bool'):
-                _output_query = qdsl.bool_(qdsl.must(_output_query))
+            if dialect < 5:
+                _output_query = {'filtered': {'query': _output_query, 'filter': _output_filter}}
+            else:
+                if not _output_query.get('bool'):
+                    _output_query = qdsl.bool_(qdsl.must(_output_query))
 
-            _output_query['bool']['filter'] = _output_filter
+                _output_query['bool']['filter'] = _output_filter
 
         return qdsl.query(_output_query)

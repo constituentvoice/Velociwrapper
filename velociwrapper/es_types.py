@@ -4,6 +4,7 @@ from six import string_types, iteritems, with_metaclass
 import socket
 from datetime import date, datetime
 import re
+from .util import VWDialect
 
 __all__ = ['ESType', 'Array', 'String', 'Text', 'Number', 'Keyword', 'Integer', 'Long', 'Float', 'Double', 'Short',
            'Boolean', 'DateTime', 'Date', 'IP', 'Binary', 'GeoPoint', 'TokenCount', 'Percolator', 'Join']
@@ -116,7 +117,6 @@ class ESType(with_metaclass(VWMeta, object)):
                     else:
                         return Keyword(value, es_properties)
 
-                    return String(value, es_properties=es_properties)
             except AttributeError:
                 # TODO this could be a byte string
                 # which could cause problems, we may need to try to detect
@@ -177,22 +177,22 @@ class ESType(with_metaclass(VWMeta, object)):
         return analyzed
 
     @classmethod
-    def build_map(cls, d):
+    def build_map(cls, d, dialect=None):
         if isinstance(d, list):
-            return [cls.build_map(i) for i in d]
+            return [cls.build_map(i, dialect=dialect) for i in d]
         elif isinstance(d, dict):
             output = {}
             for (k, v) in iteritems(d):
                 if isinstance(v, dict):
-                    output[k] = cls.build_map(v)
+                    output[k] = cls.build_map(v, dialect=dialect)
                 else:
                     v = cls.create(v)
-                    output[k] = v.prop_dict()
+                    output[k] = v.prop_dict(dialect=dialect)
 
             return output
         else:
             d = cls.create(d)
-            return d.prop_dict()
+            return d.prop_dict(dialect=dialect)
 
     @property
     def analyzed(self):
@@ -208,7 +208,10 @@ class ESType(with_metaclass(VWMeta, object)):
     def analyzed(self, analyzed_value):
         self._analyzed = analyzed_value
 
-    def prop_dict(self):
+    def prop_dict(self, dialect=None):
+        if dialect is None:
+            dialect = VWDialect.dialect()
+
         try:
             es_type = self.__class__.type_
         except AttributeError:
@@ -216,6 +219,17 @@ class ESType(with_metaclass(VWMeta, object)):
 
         _output = {"type": es_type}
         _output.update(self.__es_properties__)
+
+        if dialect != -1 and dialect < 5:
+            if _output['type'] == 'text':
+                _output['type'] = 'string'
+                try:
+                    del _output['index']
+                except KeyError:
+                    pass
+            elif _output['type'] == 'keyword':
+                _output['type'] = 'string'
+                _output['index'] = 'not_analyzed'
 
         return _output
 

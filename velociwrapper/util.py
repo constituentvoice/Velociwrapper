@@ -1,4 +1,10 @@
-__all__ = ['all_subclasses', 'unset', 'VWUnset']
+import re
+import elasticsearch
+from .connection import VWConnection, VWConnectionError
+from . import config
+
+__all__ = ['all_subclasses', 'unset', 'VWUnset', 'VWDialect']
+
 
 def all_subclasses(cls):
     """
@@ -11,6 +17,36 @@ def all_subclasses(cls):
         yield subclass
         for sub_subclass in all_subclasses(subclass):
             yield sub_subclass
+
+
+class VWDialect(object):
+    _dialect = None
+
+    @classmethod
+    def dialect(cls, force_check=False):
+        if cls._dialect and not force_check:
+            return cls._dialect
+
+        try:
+            cls._dialect = config.dialect
+        except AttributeError:
+            cls._dialect = None
+
+        if not cls._dialect:
+            # try via the connection
+            try:
+                connection = VWConnection.get_connection()
+                info = connection.info()
+                version = info.get('version').get('number')
+                matches = re.match('^(\d+)\.', version)
+                try:
+                    cls._dialect = int(matches[1])
+                except IndexError:
+                    pass
+            except VWConnectionError:
+                cls._dialect = elasticsearch.__version__[0]
+
+        return cls._dialect
 
 
 class VWUnset(object):
