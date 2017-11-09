@@ -69,7 +69,6 @@ class ESType(with_metaclass(VWMeta, object)):
             try:
                 value = value.encode('utf-8')
             except (UnicodeDecodeError, UnicodeEncodeError):
-                print("passing unicode error")
                 pass
 
             # strings could be a lot of things
@@ -192,7 +191,6 @@ class ESType(with_metaclass(VWMeta, object)):
             return output
         else:
             d = ESType.create(d)
-            print(d)
             return d.prop_dict(dialect=dialect)
 
     @property
@@ -377,15 +375,18 @@ class Date(date, ESType):
 class IP(ESType):
     type_ = 'ip'
     __es_properties__ = {}
+    value = None
 
-    def __new__(cls, value, es_properties=None):
+    def __init__(self, value, es_properties=None):
         try:
             socket.inet_aton(value)
         except socket.error:
             raise ValueError('Not a valid IP address')
 
-        super(IP, cls).__new__(cls, value, es_properties=es_properties)
+        self.value = value
 
+    def __repr__(self):
+        return self.value
 
 class Binary(ESType, str):
     type_ = 'binary'

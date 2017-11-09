@@ -1,14 +1,25 @@
 from __future__ import absolute_import
-import unittest
+from .setup import VWTestSetup
+from velociwrapper.mapper import Mapper, MapperError, MapperMergeError
+from velociwrapper.util import VWDialect
+from elasticsearch.client import IndicesClient
 
 
-class TestMapper(unittest.TestCase):
+class TestMapper(VWTestSetup):
 
+    @VWTestSetup.requires_connection
     def test_es_client(self):
-        pass
+        self.assertIsInstance(Mapper().get_es_client(), IndicesClient)
 
+    @VWTestSetup.requires_connection
     def test_server_mapping(self):
-        pass
+        dialect = VWDialect.dialect()
+        text_type = {'type': 'text'}
+        keyword_type = {'type': 'keyword'}
+        if dialect < 5:
+            text_type['type'] = 'string'
+            keyword_type['type'] = 'string'
+            keyword_type['index'] = 'not_analyzed'
 
     def test_index_map(self):
         pass

@@ -56,7 +56,7 @@ class TestESTypes(unittest.TestCase):
 
         dict_params = {
             'foo': Text('foo'),
-            'bar': Text('bar')
+            'bar': Keyword('bar')
         }
 
         expected_dialect_1_2_dict = {
@@ -192,7 +192,7 @@ class TestESTypes(unittest.TestCase):
         self.assertIsInstance(value_str, DateTime)
         self.assertIsInstance(value_obj, DateTime)
         self.assertIsInstance(value, datetime)
-        self.assertEqual(value.prop_dict(), {'type': 'datetime'})
+        self.assertEqual(value.prop_dict(), {'type': 'date'})
 
     def test_date(self):
         value = Date(2001, 12, 29)

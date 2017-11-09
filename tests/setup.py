@@ -1,10 +1,10 @@
 from __future__ import absolute_import
 import os
 import json
-from unittest import SkipTest
+from unittest import TestCase, SkipTest
 from velociwrapper import VWBase, VWCollection, VWConnection, VWConnectionError
 from velociwrapper.es_types import Array, Text, Keyword, Integer
-from velociwrapper.mapper import Mapper
+from velociwrapper.mapper import Mapper, MapperError
 from elasticsearch import RequestError
 
 class TestModel(VWBase):
@@ -21,7 +21,7 @@ class TestCollection(VWCollection):
     __model__ = TestModel
 
 
-class VWTestSetup(object):
+class VWTestSetup(TestCase):
     connection = None
 
     @classmethod
@@ -47,12 +47,18 @@ class VWTestSetup(object):
             except RequestError:
                 pass  # should be because it's already created
 
+            tm = TestModel(foo='foo',bar='bar', baz=['tabby', 'tux', 'tortoise shell'], bang=10)
+            tm.commit()
+
     @classmethod
     def tearDownRequest(cls):
         mapper = Mapper()
-        esc = mapper.get_es_client()
-        esc.delete(index='vwtest')
-        cls.connection = None
+        try:
+            esc = mapper.get_es_client()
+            esc.delete(index='vwtest')
+            cls.connection = None
+        except MapperError:
+            pass
 
     @classmethod
     def requires_connection(cls, func):
