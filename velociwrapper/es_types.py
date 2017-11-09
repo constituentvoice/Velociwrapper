@@ -76,7 +76,7 @@ class ESType(with_metaclass(VWMeta, object)):
             # try to see if it's a date
 
             test_date = value.strip()
-            test_date = re.sub("(?:Z|\s*[+\-]\d\d:?\d\d)$", '', test_date)
+            test_date = re.sub(b"(?:Z|\s*[+\-]\d\d:?\d\d)$", '', test_date)
 
             try:
                 test_date = datetime.strptime(test_date, '%Y-%m-%d %H:%M:%S')
@@ -128,11 +128,11 @@ class ESType(with_metaclass(VWMeta, object)):
                     return Keyword(value, es_properties=es_properties)
 
         # not a string, start checking for other types
-        if isinstance(value, int):
-            return Integer(value, es_properties=es_properties)
-
         if isinstance(value, bool):
             return Boolean(value, es_properties=es_properties)
+
+        if isinstance(value, int):
+            return Integer(value, es_properties=es_properties)
 
         if isinstance(value, long):
             return Long(value, es_properties=es_properties)
@@ -191,7 +191,8 @@ class ESType(with_metaclass(VWMeta, object)):
 
             return output
         else:
-            d = cls.create(d)
+            d = ESType.create(d)
+            print(d)
             return d.prop_dict(dialect=dialect)
 
     @property
@@ -335,7 +336,6 @@ class DateTime(datetime, ESType):
             except TypeError:
                 pass
                     
-
         if isinstance(args[0], datetime):
             a = args[0]
             args = [a.year, a.month, a.day, a.hour, a.minute, a.second, a.microsecond, a.tzinfo]
@@ -374,7 +374,7 @@ class Date(date, ESType):
 
 
 # TODO eventually this should subclass the ipaddress module in Python 3.3+
-class IP(str, ESType):
+class IP(ESType):
     type_ = 'ip'
     __es_properties__ = {}
 
@@ -384,15 +384,15 @@ class IP(str, ESType):
         except socket.error:
             raise ValueError('Not a valid IP address')
 
-        super(IP, cls).__new__(value, es_properties=es_properties)
+        super(IP, cls).__new__(cls, value, es_properties=es_properties)
 
 
-class Binary(object):
+class Binary(ESType, str):
     type_ = 'binary'
     __es_properties__ = {}
 
 
-class GeoPoint(ESType):
+class GeoPoint(ESType, list):
     type_ = 'geo_point'
     __es_properties__ = {}
 
