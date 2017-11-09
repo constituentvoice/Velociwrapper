@@ -1,9 +1,8 @@
 from __future__ import absolute_import, unicode_literals
 from six import iteritems, string_types
-import re
 import velociwrapper.config
 from elasticsearch import client, helpers
-from elasticsearch.exceptions import RequestError
+from elasticsearch.exceptions import RequestError, NotFoundError
 import velociwrapper.base
 from .util import all_subclasses, VWDialect
 from .connection import VWConnection
@@ -70,7 +69,7 @@ class Mapper(object):
 
         """
         if not dialect:
-            dialect = get_dialect()
+            dialect = VWDialect.dialect()
 
         subclasses = []
         self.get_subclasses(velociwrapper.base.VWBase, subclasses)
@@ -145,8 +144,14 @@ class Mapper(object):
     def get_index_for_alias(self, alias, connection=None):
         es_client = self.get_es_client(connection)
 
-        aliasd = es_client.get_aliases(index=alias)
-        index = ''
+        try:
+            aliasd = es_client.get_alias(name=alias)
+        except AttributeError:
+            aliasd = es_client.get_aliases(name=alias)  # older version
+        except NotFoundError:
+            aliasd = {}
+
+        index = None
         for k, v in iteritems(aliasd):
             index = k
             break

@@ -1,34 +1,40 @@
 from __future__ import absolute_import
 from .setup import VWTestSetup
-from velociwrapper.mapper import Mapper, MapperError, MapperMergeError
-from velociwrapper.util import VWDialect
+from velociwrapper.mapper import Mapper
 from elasticsearch.client import IndicesClient
 
 
 class TestMapper(VWTestSetup):
+    @classmethod
+    def setUpClass(cls):
+        super(TestMapper, cls).setUpClass()
 
-    @VWTestSetup.requires_connection
+    @classmethod
+    def tearDownClass(cls):
+        super(TestMapper, cls).tearDownClass()
+
     def test_es_client(self):
+        self.skip_unless_connected()
         self.assertIsInstance(Mapper().get_es_client(), IndicesClient)
 
-    @VWTestSetup.requires_connection
     def test_server_mapping(self):
-        dialect = VWDialect.dialect()
-        text_type = {'type': 'text'}
-        keyword_type = {'type': 'keyword'}
-        if dialect < 5:
-            text_type['type'] = 'string'
-            keyword_type['type'] = 'string'
-            keyword_type['index'] = 'not_analyzed'
+        self.skip_unless_connected()
+        self.assertIsInstance(Mapper().get_server_mapping(index='vwtest'), dict)
 
     def test_index_map(self):
-        pass
+        index_map = Mapper().get_index_map()
+        self.assertTrue('vwtest' in index_map)
 
     def test_create_indicies(self):
-        pass
+        self.skip_unless_connected()
+        Mapper().create_indices(index='vw_test_cat')
+        server_map = Mapper().get_server_mapping(index='vw_test_cat')
+        self.assertTrue('vw_test_cat' in server_map)
 
     def test_get_index_for_alias(self):
-        pass
+        self.skip_unless_connected()
+        index = Mapper().get_index_for_alias('vwtest')
+        self.assertEqual(index, 'vwtest_v1')
 
     def test_reindex(self):
         pass

@@ -7,6 +7,7 @@ from velociwrapper.es_types import Array, Text, Keyword, Integer
 from velociwrapper.mapper import Mapper, MapperError
 from elasticsearch import RequestError
 
+
 class TestModel(VWBase):
     __index__ = 'vwtest'
     __type__ = 'vwtestmodel'
@@ -21,12 +22,20 @@ class TestCollection(VWCollection):
     __model__ = TestModel
 
 
+class CatModel(VWBase):
+    __index__ = 'vw_test_cat'
+    __type__ = 'cat'
+    category = Keyword()
+    color = Keyword()
+    breed = Keyword()
+    description = Text()
+
+
 class VWTestSetup(TestCase):
     connection = None
 
     @classmethod
     def setUpClass(cls):
-
         # see if we have already connected
         try:
             cls.connection = VWConnection.get_connection()
@@ -47,25 +56,26 @@ class VWTestSetup(TestCase):
             except RequestError:
                 pass  # should be because it's already created
 
-            tm = TestModel(foo='foo',bar='bar', baz=['tabby', 'tux', 'tortoise shell'], bang=10)
+            tm = TestModel(foo='foo', bar='bar', baz=['tabby', 'tux', 'tortoise shell'], bang=10)
             tm.commit()
 
     @classmethod
-    def tearDownRequest(cls):
+    def tearDownClass(cls):
         mapper = Mapper()
+        esc = mapper.get_es_client()
         try:
-            esc = mapper.get_es_client()
             esc.delete(index='vwtest')
-            cls.connection = None
-        except MapperError:
+        except:
             pass
 
-    @classmethod
-    def requires_connection(cls, func):
-        def check_connection():
-            if not cls.connection:
-                raise SkipTest('No Elasticsearch connection defined. Set VW_DSN environment variable to test.')
+        try:
+            esc.delete(index='vw_test_cat')
+        except:
+            pass
 
-            func()
-        return check_connection()
+        cls.connection = None
+
+    def skip_unless_connected(self):
+        if not self.connection:
+            self.skipTest('Not connected. Set environment variable VW_DSN to connect')
 

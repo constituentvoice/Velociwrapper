@@ -40,7 +40,7 @@ class VWDialect(object):
                 version = info.get('version').get('number')
                 matches = re.match('^(\d+)\.', version)
                 try:
-                    cls._dialect = int(matches[1])
+                    cls._dialect = int(matches.group(1))
                 except IndexError:
                     pass
             except VWConnectionError:
