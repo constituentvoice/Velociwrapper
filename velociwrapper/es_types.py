@@ -76,7 +76,7 @@ class ESType(with_metaclass(VWMeta, object)):
             # try to see if it's a date
 
             test_date = value.strip()
-            test_date = re.sub(b"(?:Z|\s*[+\-]\d\d:?\d\d)$", '', test_date)
+            test_date = re.sub(b"(?:Z.+|\s*[+\-]\d\d:?\d\d)$", b'', test_date)
 
             try:
                 test_date = datetime.strptime(test_date, '%Y-%m-%d %H:%M:%S')
