@@ -1,3 +1,6 @@
+from __future__ import absolute_import, unicode_literals
+from six import iteritems, string_types
+
 from datetime import date, datetime
 import re
 
@@ -15,14 +18,15 @@ def create_es_type(value):
     try:
         if value.__metaclass__ == ESType:
             return value
-    except:
+    except AttributeError:
         pass
 
-    if isinstance(value, basestring):
+    if isinstance(value, string_types):
         # strings could be a lot of things
         # try to see if it might be a date
 
-        # dateutil isn't good at determining if we have a date (ok at parsing if we know there's a date). To that end we'll only accept a couple of valid formats
+        # dateutil isn't good at determining if we have a date (ok at parsing if we know there's a date).
+        # To that end we'll only accept a couple of valid formats
         test_date = value.strip()
         test_date = re.sub("(?:Z|\s*[\+\-]\d\d:?\d\d)$", '', test_date)
 
@@ -124,7 +128,7 @@ def is_analyzed(value):
                 checklist = [value]
 
             for item in checklist:
-                if isinstance(value, basestring):
+                if isinstance(value, string_types):
                     analyzed = True
                     break
 
@@ -144,7 +148,7 @@ class ESType(type):
         elif isinstance(d, dict):
             output = {}
 
-            for k, v in d.iteritems():
+            for k, v in iteritems(d):
                 if isinstance(v, dict):
                     output[k] = cls.build_map(v)
                 else:
@@ -250,7 +254,7 @@ class ESType(type):
         }
 
         dct['__es_properties__']['Array'] = {}
-        for k, v in dct['__es_properties__'].iteritems():
+        for k, v in iteritems(dct['__es_properties__']):
             if k == 'Array':
                 continue
 
@@ -329,7 +333,7 @@ class ESType(type):
                 valid.extend(list(cls.__es_properties__.get(obj.__name__)))
         valid.extend(list(cls.__es_properties__.get('Any')))
 
-        for k, v in kwargs.iteritems():
+        for k, v in iteritems(kwargs):
             if k in valid:
                 es_kwargs[k] = v
             else:
@@ -351,7 +355,7 @@ class ESType(type):
 
         inst = super(ESType, cls).__call__(*args, **base_kwargs)
 
-        for k, v in es_kwargs.iteritems():
+        for k, v in iteritems(es_kwargs):
             setattr(inst, k, v)  # testing
 
         return inst

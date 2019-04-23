@@ -1,1 +1,1 @@
-__version__ = '2.0.18'  # make sure to keep updated
+__version__ = '2.1.0'  # make sure to keep updated

@@ -1,10 +1,6 @@
+from __future__ import absolute_import
 from distutils.core import setup
-from distutils.sysconfig import get_python_lib
-import os
-import sys
-sys.path.append('.')
-sys.path.append('./velociwrapper')
-from version import __version__
+from velociwrapper.version import __version__
 
 setup(
     name='Velociwrapper',
@@ -16,5 +12,5 @@ setup(
     license='BSD',
     description='Wrapper to create models and collections around Elastic Search',
     long_description=open('README.rst').read(),
-    install_requires=['python-dateutil','elasticsearch']
+    install_requires=['python-dateutil', 'elasticsearch<3', 'six']
 )

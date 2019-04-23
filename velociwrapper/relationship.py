@@ -1,3 +1,8 @@
+from __future__ import absolute_import, unicode_literals
+from six import iteritems, string_types
+from .identity import VWIdentity
+
+
 class relationship(object):
     def __init__(self, ref_model, **kwargs):
         self.ref_model_str = ref_model
@@ -13,7 +18,7 @@ class relationship(object):
 
     def _find_related_class(self, name, cls=None):
         if not cls:
-            cls = VWBase
+            cls = VWIdentity
 
         classes = {}
         for sc in cls.__subclasses__():
@@ -29,7 +34,7 @@ class relationship(object):
     # returns the relationship lookup values for a given instance
     def get_relational_params(self, cur_inst):
         dict_params = {}
-        for k, v in self.params.iteritems():
+        for k, v in iteritems(self.params):
             dict_params[k] = getattr(cur_inst, k)
 
         return dict_params
@@ -37,9 +42,9 @@ class relationship(object):
     def get_reverse_params(self, cur_inst, new_obj):
         dict_params = {}
 
-        for k, v in self.params.iteritems():
+        for k, v in iteritems(self.params):
             # catching of attributeerror maybe unintended consequence
-            if new_obj and isinstance(new_obj, VWBase):
+            if new_obj and isinstance(new_obj, VWIdentity):
                 dict_params[k] = getattr(new_obj, v)
             else:
                 dict_params[k] = None
@@ -53,10 +58,10 @@ class relationship(object):
         if not self.ref_model:
             raise AttributeError('Invalid relatonship. Could not find %s.' % self.ref_model_str)
 
-        c = VWCollection(base_obj=self.ref_model)
+        c = self.ref_model.collection()
         filter_params = {}
         possible_by_id = False
-        for k, v in self.params.iteritems():
+        for k, v in iteritems(self.params):
             column_value = getattr(cur_inst, k)
 
             # we can't do anything unless there's a value for the column
@@ -73,7 +78,7 @@ class relationship(object):
                             if isinstance(item, dict) and item.get('id'):
                                 or_values.append(
                                     v + "=" + "'" + item.get('id') + "'")  # look for  dictionaries that have
-                            elif isinstance(item, basestring):
+                            elif isinstance(item, string_types):
                                 or_values.append(v + "=" + "'" + item + "'")
                             else:
                                 raise AttributeError('Unable to parse relationship')

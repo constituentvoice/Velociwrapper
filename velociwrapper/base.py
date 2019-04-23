@@ -1,3 +1,7 @@
+from __future__ import absolute_import, unicode_literals
+from six import iteritems, string_types
+from past.builtins import unicode
+
 import types
 import copy
 from datetime import date, datetime
@@ -6,7 +10,7 @@ import json
 
 from elasticsearch import Elasticsearch, NotFoundError, helpers, client
 
-from . import config, querybuilder, qdsl
+from . import config, querybuilder, qdsl, identity
 from .config import logger
 from .util import unset, all_subclasses
 from .relationship import relationship
@@ -70,7 +74,7 @@ class VWCallback(object):
         return argument
 
 
-class VWBase(VWCallback):
+class VWBase(identity.VWIdentity, VWCallback):
     # connects to ES
     _watch = False
     _needs_update = False
@@ -136,7 +140,7 @@ class VWBase(VWCallback):
         # break things when flags are removed
         retval = {}
 
-        for k, v in self.__dict__.iteritems():
+        for k, v in iteritems(self.__dict__):
             if k != '_es' and k != '_pickling':
                 retval[k] = copy.deepcopy(v)
 
@@ -146,7 +150,7 @@ class VWBase(VWCallback):
     def __setstate__(self, state):
         self._pickling = True
 
-        for k, v in state.iteritems():
+        for k, v in iteritems(state):
             setattr(self, k, v)
 
         # recreate the _es connection (doesn't reset for some reason)
@@ -193,7 +197,7 @@ class VWBase(VWCallback):
         if isinstance(v, relationship) and not no_ex:
             return v.execute(self)
 
-        elif isinstance(v, basestring):
+        elif isinstance(v, string_types):
             try:
                 try:
                     return datetime.strptime(v, '%Y-%m-%dT%H:%M:%S')
@@ -225,7 +229,7 @@ class VWBase(VWCallback):
             raise TypeError('Update to %s must extend VWBase or be None'
                             % name)
 
-        for k, v in currparams.iteritems():
+        for k, v in iteritems(currparams):
             # if left hand value is a list
             if isinstance(v, list):
                 newlist = []
@@ -491,7 +495,7 @@ class VWCollection(VWCallback):
             return value
 
     def _check_datetime_dict(self, kwargs_dict):
-        for k, v in kwargs_dict.iteritems():
+        for k, v in iteritems(kwargs_dict):
             kwargs_dict[k] = self._check_datetime(v)
 
         return kwargs_dict
@@ -503,7 +507,7 @@ class VWCollection(VWCallback):
 
         condition = self._translate_bool_condition(condition)
 
-        for k, v in kwargs.iteritems():
+        for k, v in iteritems(kwargs):
             if isinstance(v, list):
                 v = [self._check_datetime(vi) for vi in v]
             else:
@@ -540,7 +544,7 @@ class VWCollection(VWCallback):
                         match_queries = []
                         for item in v:
                             match_queries.append(qdsl.match(k, item))
-                        self._querybody.chain(qdsl.bool(qdsl.should(match_queries)), condition=condition, type=q_type)
+                        self._querybody.chain(qdsl.bool_(qdsl.should(match_queries)), condition=condition, type=q_type)
                     else:
                         self._querybody.chain(qdsl.terms(k, v), condition=condition,
                                               type=q_type)
@@ -639,7 +643,7 @@ class VWCollection(VWCallback):
             return []
 
     def sort(self, **kwargs):
-        for k, v in kwargs.iteritems():
+        for k, v in iteritems(kwargs):
             v = v.lower()
             if v not in ['asc', 'desc']:
                 v = 'asc'
