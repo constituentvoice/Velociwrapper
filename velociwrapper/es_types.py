@@ -1,6 +1,6 @@
 from __future__ import absolute_import, unicode_literals
 from six import iteritems, string_types
-from past.builtins import unicode
+from past.builtins import unicode, long
 
 from datetime import date, datetime
 import re
