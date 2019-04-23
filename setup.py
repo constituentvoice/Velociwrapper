@@ -12,5 +12,5 @@ setup(
     license='BSD',
     description='Wrapper to create models and collections around Elastic Search',
     long_description=open('README.rst').read(),
-    install_requires=['python-dateutil', 'elasticsearch<3', 'six']
+    install_requires=['python-dateutil', 'elasticsearch<3', 'six', 'past']
 )
