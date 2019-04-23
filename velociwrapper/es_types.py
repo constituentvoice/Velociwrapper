@@ -1,5 +1,6 @@
 from __future__ import absolute_import, unicode_literals
 from six import iteritems, string_types
+from past.builtins import unicode
 
 from datetime import date, datetime
 import re
@@ -66,7 +67,7 @@ def create_es_type(value):
         except:
             pass
 
-        if isinstance(value, unicode):
+        if isinstance(value, string_types):
             if value.isnumeric():
                 return Number(value)
             else:
