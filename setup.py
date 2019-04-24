@@ -1,10 +1,8 @@
-from __future__ import absolute_import
 from distutils.core import setup
-from velociwrapper.version import __version__
 
 setup(
     name='Velociwrapper',
-    version=__version__,
+    version="2.1.0",
     author='Constituent Voice',
     author_email='chris.brown@constituentvoice.com',
     packages=['velociwrapper'],
@@ -12,5 +10,5 @@ setup(
     license='BSD',
     description='Wrapper to create models and collections around Elastic Search',
     long_description=open('README.rst').read(),
-    install_requires=['python-dateutil', 'elasticsearch<3', 'six', 'past']
+    install_requires=['python-dateutil', 'elasticsearch<3', 'six', 'future']
 )
