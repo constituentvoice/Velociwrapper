@@ -17,7 +17,7 @@ __all__ = [
 def create_es_type(value):
     # check if we're already an es type
     try:
-        if value.__metaclass__ == ESType:
+        if type(value).__class__ == ESType:
             return value
     except AttributeError:
         pass
@@ -105,7 +105,7 @@ def is_analyzed(value):
     analyzed = True
     check_defaults = False
     try:
-        if value.__metaclass__ == ESType:
+        if type(value).__class__ == ESType:
             if isinstance(value, String) or isinstance(value, Array):
                 analyzed = value.es_args().get('analyzed')
                 if analyzed == None:
@@ -154,7 +154,7 @@ class ESType(type):
                     output[k] = cls.build_map(v)
                 else:
                     try:
-                        if v.__metaclass__ == ESType:
+                        if type(v).__class__ == ESType:
                             output[k] = v.prop_dict()
                         else:
                             output[k] = v
