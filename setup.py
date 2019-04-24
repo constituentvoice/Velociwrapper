@@ -1,8 +1,14 @@
 from distutils.core import setup
 
+# this nastiness to try to get the version without loading the whole module
+import sys
+import os
+sys.path.append(os.path.join(os.path.curdir, 'velociwrapper'))
+from version import __version__
+
 setup(
     name='Velociwrapper',
-    version="2.1.0",
+    version=__version__,
     author='Constituent Voice',
     author_email='chris.brown@constituentvoice.com',
     packages=['velociwrapper'],
