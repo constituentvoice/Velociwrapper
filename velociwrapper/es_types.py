@@ -1,5 +1,5 @@
 from __future__ import absolute_import, unicode_literals
-from six import iteritems, string_types
+from six import iteritems, string_types, add_metaclass
 from past.builtins import unicode, long
 
 from datetime import date, datetime
@@ -363,63 +363,66 @@ class ESType(type):
 
 
 # lists
+@add_metaclass(ESType)
 class Array(list):
-    __metaclass__ = ESType
     type_ = 'string'  # default
 
 
 # converts strings to unicode
+@add_metaclass(ESType)
 class String(unicode):
-    __metaclass__ = ESType
+    pass
 
 
+@add_metaclass(ESType)
 class Number(float):
-    __metaclass__ = ESType
     precision_step = 8
     coerce_ = True
 
 
+@add_metaclass(ESType)
 class Float(Number):
     type_ = 'float'
 
 
+@add_metaclass(ESType)
 class Double(Number):
-    __metaclass__ = ESType
     type_ = 'double'
     precision_step = 16
 
 
+@add_metaclass(ESType)
 class Integer(int):
-    __metaclass__ = ESType
     precision_step = 8
     coerce_ = True
     type_ = 'integer'
 
 
+@add_metaclass(ESType)
 class Long(long):
-    __metaclass__ = ESType
     coerce_ = True
     type_ = 'long'
     precision_step = 16
 
 
+@add_metaclass(ESType)
 class Short(Integer):
     type_ = 'short'
 
 
+@add_metaclass(ESType)
 class Byte(Number):
-    __metaclass__ = ESType
     type_ = 'byte'
     precision_step = 2147483647  # wat? (its from the ES docs)
 
 
+@add_metaclass(ESType)
 class TokenCount(Number):
-    __metaclass__ = ESType
     analyzer = 'standard'
 
 
+@add_metaclass(ESType)
 class DateTime(datetime):
-    __metaclass__ = ESType
     type_ = 'date'
     precision_step = 16
     ignore_malformed = False
@@ -432,18 +435,18 @@ class DateTime(datetime):
         # for now just does default
 
 
+@add_metaclass(ESType)
 class Date(date):
-    __metaclass__ = ESType
     precision_step = 16
     ignore_malformed = False
 
 
+@add_metaclass(ESType)
 class Boolean(object):
     # can't extend bool :(
     # making it extend int did weird things in ES
     # so it extends object and tries to act like a bool
     # in base this class is detected and regular bools are always set as the attribute to be sent
-    __metaclass__ = ESType
 
     def __init__(self, value, **kwargs):
         self.value = bool(value)
@@ -455,18 +458,19 @@ class Boolean(object):
         return str(self.value)
 
 
+@add_metaclass(ESType)
 class Binary(object):
-    __metaclass__ = ESType
     compress = False
     compress_threshold = -1
 
 
+@add_metaclass(ESType)
 class IP(String):
-    __metaclass__ = ESType
+    pass
 
 
+@add_metaclass(ESType)
 class GeoPoint(object):
-    __metaclass__ = ESType
     type_ = 'geo_point'
     lat_lon = False
     geohash = False
@@ -480,13 +484,14 @@ class GeoPoint(object):
     normalize_lon = False
 
 
+@add_metaclass(ESType)
 class GeoShape(object):
-    __metaclass__ = ESType
     tree = 'geohash'
     precision = 'meters'
 
     # TODO - do we want to internally implement all the GeoJSON that goes along with this?
 
 
+@add_metaclass(ESType)
 class Attachment(object):
-    __metaclass__ = ESType
+    pass
