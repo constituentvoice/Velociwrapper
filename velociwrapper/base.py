@@ -282,7 +282,7 @@ class VWBase(identity.VWIdentity, VWCallback):
             curr_value = create_es_type(self.__get_current_value(name))  # create as an es_type
 
             try:
-                if value.__metaclass__ == ESType:
+                if type(value).__class__ == ESType:
                     set_value_cls = False
                 elif value is None:
                     set_value_cls = False
@@ -305,7 +305,7 @@ class VWBase(identity.VWIdentity, VWCallback):
                         type_enforcement = False
 
                 try:
-                    if curr_value.__metaclass__ == ESType:
+                    if type(curr_value).__class__ == ESType:
                         cls = curr_value.__class__
                         params = curr_value.es_args()
 

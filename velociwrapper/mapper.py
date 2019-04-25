@@ -96,7 +96,7 @@ class Mapper(object):
 
             for k, v in inspect.getmembers(sc):
                 try:
-                    if v.__metaclass__ == ESType:
+                    if type(v).__class__ == ESType:
                         sc_body[sc.__type__]['properties'][k] = v.prop_dict()
                 except AttributeError:
                     pass
@@ -135,7 +135,7 @@ class Mapper(object):
 
     def reindex(self, idx, newindex, alias_name=None, remap_alias=None, **kwargs):
         # are we an alias or an actual index?
-        index = idx;
+        index = idx
         alias = None
         alias_exists = False
 
@@ -180,7 +180,7 @@ class Mapper(object):
         body = {}
         for k, v in iteritems(cls.__dict__):
             try:
-                if v.__metaclass__ == ESType:
+                if type(v).__class__ == ESType:
                     body[k] = v.prop_dict()
             except AttributeError:
                 pass
