@@ -1,5 +1,5 @@
 from __future__ import absolute_import, unicode_literals
-from six import iteritems
+from six import iteritems, string_types
 
 
 def query(params):
@@ -85,7 +85,7 @@ def terms(field, value, **kwargs):
 
 
 def _term_param(_term_type, params, value=None, **kwargs):
-    if isinstance(params, str) or isinstance(params, unicode) or value:
+    if isinstance(params, string_types) or value:
         # assume field / value
         return {_term_type: term(params, value)}
     else:
