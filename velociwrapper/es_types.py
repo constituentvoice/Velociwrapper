@@ -450,9 +450,12 @@ class Boolean(object):
 
     def __init__(self, value, **kwargs):
         self.value = bool(value)
+    
+    def __bool__(self):
+        return self.value
 
     def __nonzero__(self):
-        return self.value
+        return self.__bool__()
 
     def __repr__(self):
         return str(self.value)
