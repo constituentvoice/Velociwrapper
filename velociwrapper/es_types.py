@@ -68,12 +68,13 @@ def create_es_type(value):
             pass
 
         if isinstance(value, string_types):
-            if value.isnumeric():
-                return Number(value)
-            else:
-                return String(value)
-
-        return String(value)
+            try:
+                value = int(value)
+            except ValueError:
+                try:
+                    value = float(value)
+                except ValueError:
+                    return String(value)
 
     if isinstance(value, int):
         return Integer(value)
