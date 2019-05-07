@@ -1,9 +1,9 @@
 from distutils.core import setup
-from distutils.sysconfig import get_python_lib
-import os
+
+# this nastiness to try to get the version without loading the whole module
 import sys
-sys.path.append('.')
-sys.path.append('./velociwrapper')
+import os
+sys.path.append(os.path.join(os.path.curdir, 'velociwrapper'))
 from version import __version__
 
 setup(
@@ -16,5 +16,5 @@ setup(
     license='BSD',
     description='Wrapper to create models and collections around Elastic Search',
     long_description=open('README.rst').read(),
-    install_requires=['python-dateutil','elasticsearch']
+    install_requires=['python-dateutil', 'elasticsearch<3', 'six', 'future']
 )

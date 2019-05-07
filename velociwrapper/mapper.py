@@ -1,3 +1,5 @@
+from __future__ import absolute_import, unicode_literals
+from six import iteritems
 from . import config
 from elasticsearch import Elasticsearch, client, helpers
 from .config import logger
@@ -15,7 +17,10 @@ class MapperError(Exception):
 
 # tools for creating or reindexing elasticsearch mapping
 class Mapper(object):
-    def __init__(self, connect_args={}):
+    def __init__(self, connect_args=None):
+        if not isinstance(connect_args, dict):
+            connect_args = {}
+
         self._es = Elasticsearch(config.dsn, **config.connection_params)
         self._esc = client.IndicesClient(self._es)
 
@@ -91,7 +96,7 @@ class Mapper(object):
 
             for k, v in inspect.getmembers(sc):
                 try:
-                    if v.__metaclass__ == ESType:
+                    if type(v).__class__ == ESType:
                         sc_body[sc.__type__]['properties'][k] = v.prop_dict()
                 except AttributeError:
                     pass
@@ -105,7 +110,7 @@ class Mapper(object):
         suffix = kwargs.get('suffix')
         indexes = self.get_index_map(**kwargs)
 
-        for k, v in indexes.iteritems():
+        for k, v in iteritems(indexes):
             if suffix:
                 idx = k + suffix
             else:
@@ -119,7 +124,7 @@ class Mapper(object):
     def get_index_for_alias(self, alias):
         aliasd = self._esc.get_aliases(index=alias)
         index = ''
-        for k, v in aliasd.iteritems():
+        for k, v in iteritems(aliasd):
             index = k
             break
 
@@ -130,7 +135,7 @@ class Mapper(object):
 
     def reindex(self, idx, newindex, alias_name=None, remap_alias=None, **kwargs):
         # are we an alias or an actual index?
-        index = idx;
+        index = idx
         alias = None
         alias_exists = False
 
@@ -173,9 +178,9 @@ class Mapper(object):
 
     def describe(self, cls):
         body = {}
-        for k, v in cls.__dict__.iteritems():
+        for k, v in iteritems(cls.__dict__):
             try:
-                if v.__metaclass__ == ESType:
+                if type(v).__class__ == ESType:
                     body[k] = v.prop_dict()
             except AttributeError:
                 pass

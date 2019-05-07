@@ -1,3 +1,7 @@
+from __future__ import absolute_import, unicode_literals
+from six import iteritems, string_types, add_metaclass
+from past.builtins import unicode, long
+
 from datetime import date, datetime
 import re
 
@@ -13,16 +17,17 @@ __all__ = [
 def create_es_type(value):
     # check if we're already an es type
     try:
-        if value.__metaclass__ == ESType:
+        if type(value).__class__ == ESType:
             return value
-    except:
+    except AttributeError:
         pass
 
-    if isinstance(value, basestring):
+    if isinstance(value, string_types):
         # strings could be a lot of things
         # try to see if it might be a date
 
-        # dateutil isn't good at determining if we have a date (ok at parsing if we know there's a date). To that end we'll only accept a couple of valid formats
+        # dateutil isn't good at determining if we have a date (ok at parsing if we know there's a date).
+        # To that end we'll only accept a couple of valid formats
         test_date = value.strip()
         test_date = re.sub("(?:Z|\s*[\+\-]\d\d:?\d\d)$", '', test_date)
 
@@ -62,13 +67,14 @@ def create_es_type(value):
         except:
             pass
 
-        if isinstance(value, unicode):
-            if value.isnumeric():
-                return Number(value)
-            else:
-                return String(value)
-
-        return String(value)
+        if isinstance(value, string_types):
+            try:
+                value = int(value)
+            except ValueError:
+                try:
+                    value = float(value)
+                except ValueError:
+                    return String(value)
 
     if isinstance(value, int):
         return Integer(value)
@@ -100,7 +106,7 @@ def is_analyzed(value):
     analyzed = True
     check_defaults = False
     try:
-        if value.__metaclass__ == ESType:
+        if type(value).__class__ == ESType:
             if isinstance(value, String) or isinstance(value, Array):
                 analyzed = value.es_args().get('analyzed')
                 if analyzed == None:
@@ -124,7 +130,7 @@ def is_analyzed(value):
                 checklist = [value]
 
             for item in checklist:
-                if isinstance(value, basestring):
+                if isinstance(value, string_types):
                     analyzed = True
                     break
 
@@ -144,12 +150,12 @@ class ESType(type):
         elif isinstance(d, dict):
             output = {}
 
-            for k, v in d.iteritems():
+            for k, v in iteritems(d):
                 if isinstance(v, dict):
                     output[k] = cls.build_map(v)
                 else:
                     try:
-                        if v.__metaclass__ == ESType:
+                        if type(v).__class__ == ESType:
                             output[k] = v.prop_dict()
                         else:
                             output[k] = v
@@ -250,7 +256,7 @@ class ESType(type):
         }
 
         dct['__es_properties__']['Array'] = {}
-        for k, v in dct['__es_properties__'].iteritems():
+        for k, v in iteritems(dct['__es_properties__']):
             if k == 'Array':
                 continue
 
@@ -329,7 +335,7 @@ class ESType(type):
                 valid.extend(list(cls.__es_properties__.get(obj.__name__)))
         valid.extend(list(cls.__es_properties__.get('Any')))
 
-        for k, v in kwargs.iteritems():
+        for k, v in iteritems(kwargs):
             if k in valid:
                 es_kwargs[k] = v
             else:
@@ -351,70 +357,73 @@ class ESType(type):
 
         inst = super(ESType, cls).__call__(*args, **base_kwargs)
 
-        for k, v in es_kwargs.iteritems():
+        for k, v in iteritems(es_kwargs):
             setattr(inst, k, v)  # testing
 
         return inst
 
 
 # lists
+@add_metaclass(ESType)
 class Array(list):
-    __metaclass__ = ESType
     type_ = 'string'  # default
 
 
 # converts strings to unicode
+@add_metaclass(ESType)
 class String(unicode):
-    __metaclass__ = ESType
+    pass
 
 
+@add_metaclass(ESType)
 class Number(float):
-    __metaclass__ = ESType
     precision_step = 8
     coerce_ = True
 
 
+@add_metaclass(ESType)
 class Float(Number):
     type_ = 'float'
 
 
+@add_metaclass(ESType)
 class Double(Number):
-    __metaclass__ = ESType
     type_ = 'double'
     precision_step = 16
 
 
+@add_metaclass(ESType)
 class Integer(int):
-    __metaclass__ = ESType
     precision_step = 8
     coerce_ = True
     type_ = 'integer'
 
 
+@add_metaclass(ESType)
 class Long(long):
-    __metaclass__ = ESType
     coerce_ = True
     type_ = 'long'
     precision_step = 16
 
 
+@add_metaclass(ESType)
 class Short(Integer):
     type_ = 'short'
 
 
+@add_metaclass(ESType)
 class Byte(Number):
-    __metaclass__ = ESType
     type_ = 'byte'
     precision_step = 2147483647  # wat? (its from the ES docs)
 
 
+@add_metaclass(ESType)
 class TokenCount(Number):
-    __metaclass__ = ESType
     analyzer = 'standard'
 
 
+@add_metaclass(ESType)
 class DateTime(datetime):
-    __metaclass__ = ESType
     type_ = 'date'
     precision_step = 16
     ignore_malformed = False
@@ -427,41 +436,45 @@ class DateTime(datetime):
         # for now just does default
 
 
+@add_metaclass(ESType)
 class Date(date):
-    __metaclass__ = ESType
     precision_step = 16
     ignore_malformed = False
 
 
+@add_metaclass(ESType)
 class Boolean(object):
     # can't extend bool :(
     # making it extend int did weird things in ES
     # so it extends object and tries to act like a bool
     # in base this class is detected and regular bools are always set as the attribute to be sent
-    __metaclass__ = ESType
 
     def __init__(self, value, **kwargs):
         self.value = bool(value)
+    
+    def __bool__(self):
+        return self.value
 
     def __nonzero__(self):
-        return self.value
+        return self.__bool__()
 
     def __repr__(self):
         return str(self.value)
 
 
+@add_metaclass(ESType)
 class Binary(object):
-    __metaclass__ = ESType
     compress = False
     compress_threshold = -1
 
 
+@add_metaclass(ESType)
 class IP(String):
-    __metaclass__ = ESType
+    pass
 
 
+@add_metaclass(ESType)
 class GeoPoint(object):
-    __metaclass__ = ESType
     type_ = 'geo_point'
     lat_lon = False
     geohash = False
@@ -475,13 +488,14 @@ class GeoPoint(object):
     normalize_lon = False
 
 
+@add_metaclass(ESType)
 class GeoShape(object):
-    __metaclass__ = ESType
     tree = 'geohash'
     precision = 'meters'
 
     # TODO - do we want to internally implement all the GeoJSON that goes along with this?
 
 
+@add_metaclass(ESType)
 class Attachment(object):
-    __metaclass__ = ESType
+    pass

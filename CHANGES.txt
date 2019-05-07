@@ -261,3 +261,17 @@
     - VWBase.collection() now recursively finds VWCollection subclasses
     - Mapper.get_sublcasses() now recursively finds subclasses
     - Fixed an issue where datetimes were being truncated to dates
+
+2.1.0
+	- Fixed relationship circular imports
+	- added a VWIdentity class for identifying models (used internally by relationship)
+	- fix for improper .isnumeric() check against python2 strings.
+	- create_es_type() returns a more precise Integer() or Float() instead of Number()
+	  if the string value represents a number
+	- cleaned up syntax in relationship()
+	- Cleaned up README, fixed some typos and added documentation for newer features
+	- Python3 support (finally)
+	    - Removed references to unicode()
+	    - Fixed references to long()
+	    - Fixed metaclass syntax
+	    - Added __bool__ for Python3 as an alias of __non_zero__

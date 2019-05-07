@@ -1,3 +1,7 @@
+from __future__ import absolute_import, unicode_literals
+from six import iteritems, string_types
+
+
 def query(params):
     return {"query": params}
 
@@ -29,7 +33,7 @@ def multi_match(query, fields, **kwargs):
     return output
 
 
-def bool(*args, **kwargs):
+def bool_(*args, **kwargs):
     output = kwargs.get('__vw_set_current', {"bool": {}})
     try:
         del kwargs['__vw_set_current']
@@ -81,7 +85,7 @@ def terms(field, value, **kwargs):
 
 
 def _term_param(_term_type, params, value=None, **kwargs):
-    if isinstance(params, str) or isinstance(params, unicode) or value:
+    if isinstance(params, string_types) or value:
         # assume field / value
         return {_term_type: term(params, value)}
     else:
@@ -494,10 +498,13 @@ def type_(_type):
     return {"type": {"value": _type}}
 
 
-def highlight(fields={}, **kwargs):
+def highlight(fields=None, **kwargs):
+    if not isinstance(fields, dict):
+        fields = {}
+
     hl = {"fields": fields}
 
-    for k, v in kwargs.iteritems():
+    for k, v in iteritems(kwargs):
         hl[k] = v
 
     return {"highlight": hl}

@@ -480,7 +480,7 @@ Delete the records specified by a list of ids. Equivalent to:
 **exact** *(field=str, value=mixed)*
 
 Chainable. Find records where ``field`` is the exact ``value``. String based fields **must** be specified as ``not_analyzed`` in the index. Otherwise results
-may not be as expected.  ``exact()`` is more for completeness. ``filter_by()`` uses exact values when available. The only difference is ``exists()``
+may not be as expected.  ``exact()`` is more for completeness. ``filter_by()`` uses exact values when available. The only difference is ``exact()``
 will warn if the field cannot be searched while ``filter_by()`` silently converts to a query.
 
 Keyword arguments:
@@ -562,7 +562,7 @@ Keyword arguments:
 
 **one** *()*
 
-Executes the search and returns the first record only. Raises ``NoResultFound`` is the search did not match any documents.
+Executes the search and returns the first record only. Raises ``NoResultFound`` if the search did not match any documents.
 
 **range** *(field=str, \*\*kwargs)*
 
@@ -600,7 +600,7 @@ Chainable. Filter the search based on distance from a geopoint.
 
 **sort** *(\*\*kwargs)*
 
-Chainable (and can appear anywhere before an output method, including by having other filters changed to it). Arguments are ``field=asc|desc``. ``asc`` sorts the field
+Chainable (and can appear anywhere before an output method, including by having other filters chained to it). Arguments are ``field=asc|desc``. ``asc`` sorts the field
 first to last. ``desc`` sorts the field last to first. ``asc`` is the default.
 
 ----
@@ -646,7 +646,7 @@ Returns ``True`` if the current query body contains a filter.
 
 **is_query** *(self)*
 
-Returns ``True`` is the current query body contains a query other than ``match_all {}``
+Returns ``True`` if the current query body contains a query other than ``match_all {}``
 
 **build** *(self)*
 
@@ -691,17 +691,19 @@ Returns ``{"multi_match": {"query": query, "fields": fields } }``
 
 Additional keyword arguments should be Elasticsearch arguments on ``multi_match``
 
-**bool** *(\*args,\*\*kwargs)*
+**bool_** *(\*args,\*\*kwargs)*
 
-Args are any number of dicts containing "must", "should" or "must_not" keys. Keyword arguments
-are Elasticsearch options for ``bool`` such as ``minimum_should_match``
+Args are any number of dicts containing "must", "should" or "must_not" keys. Note the appended "_" to prevent
+confusion with Python's ``bool``.
+
+Keyword arguments are Elasticsearch options for ``bool`` such as ``minimum_should_match``
 
 Example:
 
 ::
 
-    from velociwrapper.qdsl import bool, must, must_not, match
-    mybool = bool(
+    from velociwrapper.qdsl import bool_, must, must_not, match
+    mybool = bool_(
         must( match('foo','some value') ), 
         must_not( match( 'bar', 'some other value' ) )
     )
@@ -1030,4 +1032,4 @@ Chris Brown, Drew Goin and Boyd Hitt
 COPYRIGHT
 ---------
 
-Copyright (c) 2015 Constituent Voice LLC
+Copyright (c) 2015-2019 Constituent Voice LLC

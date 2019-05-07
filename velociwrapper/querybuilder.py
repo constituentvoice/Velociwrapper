@@ -1,3 +1,5 @@
+from __future__ import absolute_import, unicode_literals
+from six import iteritems
 import copy
 from . import qdsl
 
@@ -92,7 +94,7 @@ class QueryBody(object):
 
             if self._explicit:
                 # check to see if we need to move existing bools inside an explicit condition
-                for btype, ttype in condition_map.iteritems():
+                for btype, ttype in iteritems(condition_map):
                     if self._filter.get(btype):
                         self._filter[ttype].extend(self._filter[btype])
 
