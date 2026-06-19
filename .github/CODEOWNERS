@@ -1,0 +1,2 @@
+# Require org-admin review for CI/CD & repo automation changes
+/.github/ @mark-keaton @ddgoin
